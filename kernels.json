@@ -1,0 +1,18 @@
+{
+  "linear": {},
+  "polynomial": {
+    "gammas": [3, 15],
+    "coefs": [1],
+    "degrees": [3]
+  },
+  "rbf": {
+    "gammas": [3, 15]
+  },
+  "laplacian": {
+    "gammas": [3, 15]
+  },
+  "sigmoid": {
+    "gammas": [3, 15],
+    "coefs": [1]
+  }
+}

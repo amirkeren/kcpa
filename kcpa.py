@@ -20,14 +20,15 @@ def stepwise_kpca(k, n_components):
 
 X, y = make_moons(n_samples=100, random_state=123)
 
-config = ExperimentsManager().print_config()
-for kernel_config in config['kernels']:
-    kernel_initializer = KernelInitializer(kernel_config['name'], kernel_config['params'])
+experiments = ExperimentsManager().get_experiments()
+for experiment_name, experiment_params in experiments.items():
+    kernels = experiment_params['kernels']
+    kernel_initializer = KernelInitializer(X, kernels)
     while True:
-        kernel = kernel_initializer.get_kernel(X)
+        kernel = kernel_initializer.get_kernel()
         if kernel is None:
             break
-        X_pc = stepwise_kpca(kernel, n_components=2)
+        X_pc = stepwise_kpca(kernel, n_components=experiment_params['components'])
         plt.figure(figsize=(8, 6))
         plt.scatter(X_pc[y == 0, 0], X_pc[y == 0, 1], color='red', alpha=0.5)
         plt.scatter(X_pc[y == 1, 0], X_pc[y == 1, 1], color='blue', alpha=0.5)
