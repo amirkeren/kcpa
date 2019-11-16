@@ -1,8 +1,22 @@
 {
   "experiment1": {
     "kernels": [
+      "sigmoid",
+      "polynomial"
+    ],
+    "joinByFunctions": [
+      "add"
+    ],
+    "components": [
+      2
+    ]
+  },
+  "experiment2": {
+    "kernels": [
       "rbf"
     ],
-    "components": 2
+    "components": [
+      2
+    ]
   }
 }

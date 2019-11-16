@@ -1,7 +1,7 @@
 from scipy.linalg import eigh
 from sklearn.datasets import make_moons
 from experiments_manager import ExperimentsManager
-from kernel_initializer import KernelInitializer
+from kernels_manager import KernelsManager
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,12 +23,13 @@ X, y = make_moons(n_samples=100, random_state=123)
 experiments = ExperimentsManager().get_experiments()
 for experiment_name, experiment_params in experiments.items():
     kernels = experiment_params['kernels']
-    kernel_initializer = KernelInitializer(X, kernels)
+    join_by_functions = None if 'joinByFunctions' not in experiment_params else experiment_params['joinByFunctions']
+    kernel_manager = KernelsManager(X, kernels, join_by_functions)
     while True:
-        kernel = kernel_initializer.get_kernel()
+        kernel = kernel_manager.get_kernel()
         if kernel is None:
             break
-        X_pc = stepwise_kpca(kernel, n_components=experiment_params['components'])
+        X_pc = stepwise_kpca(kernel, n_components=experiment_params['components'][0])
         plt.figure(figsize=(8, 6))
         plt.scatter(X_pc[y == 0, 0], X_pc[y == 0, 1], color='red', alpha=0.5)
         plt.scatter(X_pc[y == 1, 0], X_pc[y == 1, 1], color='blue', alpha=0.5)
