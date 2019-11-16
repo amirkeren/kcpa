@@ -1,0 +1,41 @@
+{
+    "kernels": [
+        {
+          "name": "linear_kernel",
+          "params": {}
+        },
+        {
+          "name": "polynomial_kernel",
+          "params": {
+            "degrees": [3],
+            "gammas": [3, 15],
+            "coefs": [1]
+          }
+        },
+        {
+          "name": "rbf_kernel",
+          "params": {
+            "gammas": [3, 15]
+          }
+        },
+        {
+          "name": "laplacian_kernel",
+          "params": {
+            "gammas": [3, 15]
+          }
+        },
+        {
+          "name": "sigmoid_kernel",
+          "params": {
+            "gammas": [3, 15],
+            "coefs": [1]
+          }
+        }
+    ],
+    "operations": [
+      "add",
+      "mul",
+      "get_left",
+      "get_right"
+    ]
+}
