@@ -28,24 +28,40 @@ class KernelsManager:
             if self.num_kernels == 1:
                 return self._get_kernel(running_configuration[0])
             kernels = []
+            log_configuration = {
+                'joinBy': running_configuration[-1]
+            }
+            log_kernels_configuration = []
             for kernel in running_configuration[:-1]:
-                kernels.append(self._get_kernel(kernel))
+                temp_kernel, inner_configuration = self._get_kernel(kernel)
+                kernels.append(temp_kernel)
+                log_kernels_configuration.append(inner_configuration)
+            log_configuration['kernels'] = log_kernels_configuration
             if running_configuration[-1] == "add":
-                return functools.reduce(lambda a, b: a + b, kernels)
+                return functools.reduce(lambda a, b: a + b, kernels), log_configuration
             elif running_configuration[-1] == "mul":
-                return functools.reduce(lambda a, b: a * b, kernels)
+                return functools.reduce(lambda a, b: a * b, kernels), log_configuration
         except StopIteration:
-            return None
+            return None, None
 
-    def _get_kernel(self, kernel):
-        kernel_name = kernel[0]
+    def _get_kernel(self, kernel_config):
+        kernel_name = kernel_config[0]
+        configuration = {}
+        if len(kernel_config) >= 2:
+            configuration['gamma'] = kernel_config[1]
+        if len(kernel_config) >= 3:
+            configuration['coef0'] = kernel_config[2]
+        if len(kernel_config) >= 4:
+            configuration['degree'] = kernel_config[3]
+        configuration['kernel'] = kernel_name
         if kernel_name == "polynomial":
-            return polynomial_kernel(self.x, gamma=kernel[1], coef0=kernel[2], degree=kernel[3])
-        if kernel_name == "rbf":
-            return rbf_kernel(self.x, gamma=kernel[1])
-        if kernel_name == "laplacian":
-            return laplacian_kernel(self.x, kernel[1])
-        if kernel_name == "sigmoid":
-            return sigmoid_kernel(self.x, gamma=kernel[1], coef0=kernel[2])
-        if kernel_name == "linear":
-            return linear_kernel(self.x)
+            kernel = polynomial_kernel(self.x, gamma=kernel_config[1], coef0=kernel_config[2], degree=kernel_config[3])
+        elif kernel_name == "rbf":
+            kernel = rbf_kernel(self.x, gamma=kernel_config[1])
+        elif kernel_name == "laplacian":
+            kernel = laplacian_kernel(self.x, kernel_config[1])
+        elif kernel_name == "sigmoid":
+            kernel = sigmoid_kernel(self.x, gamma=kernel_config[1], coef0=kernel_config[2])
+        elif kernel_name == "linear":
+            kernel = linear_kernel(self.x)
+        return kernel, configuration

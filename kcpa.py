@@ -24,17 +24,20 @@ experiments = ExperimentsManager().get_experiments()
 for experiment_name, experiment_params in experiments.items():
     kernels = experiment_params['kernels']
     join_by_functions = None if 'joinByFunctions' not in experiment_params else experiment_params['joinByFunctions']
-    kernel_manager = KernelsManager(X, kernels, join_by_functions)
-    while True:
-        kernel = kernel_manager.get_kernel()
-        if kernel is None:
-            break
-        X_pc = stepwise_kpca(kernel, n_components=experiment_params['components'][0])
-        plt.figure(figsize=(8, 6))
-        plt.scatter(X_pc[y == 0, 0], X_pc[y == 0, 1], color='red', alpha=0.5)
-        plt.scatter(X_pc[y == 1, 0], X_pc[y == 1, 1], color='blue', alpha=0.5)
-        plt.title('First 2 principal components after RBF Kernel PCA')
-        plt.text(-0.18, 0.18, 'gamma = 15', fontsize=12)
-        plt.xlabel('PC1')
-        plt.ylabel('PC2')
-        plt.show()
+    for num_components in experiment_params['components']:
+        kernel_manager = KernelsManager(X, kernels, join_by_functions)
+        while True:
+            kernel, running_configuration = kernel_manager.get_kernel()
+            if kernel is None:
+                break
+            running_configuration['components'] = num_components
+            print(experiment_name, running_configuration)
+            X_pc = stepwise_kpca(kernel, n_components=num_components)
+            plt.figure(figsize=(8, 6))
+            plt.scatter(X_pc[y == 0, 0], X_pc[y == 0, 1], color='red', alpha=0.5)
+            plt.scatter(X_pc[y == 1, 0], X_pc[y == 1, 1], color='blue', alpha=0.5)
+            plt.title('First 2 principal components after RBF Kernel PCA')
+            plt.text(-0.18, 0.18, 'gamma = 15', fontsize=12)
+            plt.xlabel('PC1')
+            plt.ylabel('PC2')
+            plt.show()
