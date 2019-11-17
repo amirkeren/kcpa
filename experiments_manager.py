@@ -16,17 +16,20 @@ class ExperimentsManager:
             datasets.sort()
             self.datasets = [(dataset, pd.read_csv(join('datasets', dataset), header=None)) for dataset in datasets][1:]
 
-    def get_next_experiment(self):
-        return iter(self.experiments.values)
+    def get_experiments(self):
+        return self.experiments.items()
 
     def run(self, experiment):
         clf = DecisionTreeClassifier(random_state=42)
+        # parallelize it
         for dataset, df in self.datasets:
             print(dataset)
             x = df.iloc[:, :-1]
             y = df.iloc[:, -1]
             kernel_manager = KernelsManager(x)
+            kernel_ensamble = []
             for kernel_config in experiment['kernels']:
-                kernel = kernel_manager.get_kernel(kernel_config)
-                X_pc = stepwise_kpca(kernel, experiment['components'])
-            print(cross_val_score(clf, X_pc, df.iloc[:, -1], cv=2))
+                x_pc = stepwise_kpca(kernel_manager.get_kernel(kernel_config), experiment['components'])
+                kernel_ensamble.append(x_pc)
+            for kernel in kernel_ensamble:
+                print(cross_val_score(clf, kernel, y, cv=2))

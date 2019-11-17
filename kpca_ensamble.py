@@ -9,10 +9,11 @@ def write_results(data):
     with open(filename, 'w') as outfile:
         json.dump(data, outfile)
 
-    experiments_manager = ExperimentsManager()
-    experiment = experiments_manager.get_next_experiment()
-    experiments_manager.run(experiment)
 
+experiments_manager = ExperimentsManager()
+# parallelize it
+for experiment_name, experiment_params in experiments_manager.get_experiments():
+    experiments_manager.run(experiment_params)
 
 # for experiment_name, experiment_params in experiments.items():
 #     kernels = experiment_params['kernels']
