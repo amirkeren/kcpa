@@ -1,6 +1,6 @@
 from experiments_manager import ExperimentsManager
 from kernels_manager import KernelsManager
-from kcpa_utils import stepwise_kpca
+from kpca_utils import stepwise_kpca
 from time import localtime, strftime
 import json
 
