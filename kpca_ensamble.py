@@ -1,9 +1,5 @@
 from experiments_manager import ExperimentsManager
-from kernels_manager import KernelsManager
-from kpca_utils import stepwise_kpca
 from time import localtime, strftime
-from sklearn.model_selection import cross_val_score
-from sklearn.tree import DecisionTreeClassifier
 import json
 
 
@@ -13,14 +9,10 @@ def write_results(data):
     with open(filename, 'w') as outfile:
         json.dump(data, outfile)
 
+    experiments_manager = ExperimentsManager()
+    experiment = experiments_manager.get_next_experiment()
+    experiments_manager.run(experiment)
 
-# experiments = ExperimentsManager.get_experiments()
-datasets = ExperimentsManager.get_datasets()
-clf = DecisionTreeClassifier(random_state=42)
-
-for dataset, df in datasets:
-    print(dataset)
-    print(cross_val_score(clf, df.iloc[:, :-1], df.iloc[:, -1], cv=2))
 
 # for experiment_name, experiment_params in experiments.items():
 #     kernels = experiment_params['kernels']

@@ -1,22 +1,41 @@
 {
   "experiment1": {
     "kernels": [
-      "sigmoid",
-      "polynomial"
+      {
+        "name": "sigmoid",
+        "params": {
+          "gamma": 3,
+          "coef": 1
+        }
+      },
+      {
+        "name": "polynomial",
+        "params": {
+          "gamma": 3,
+          "coef": 1,
+          "degree": 2
+        }
+      },
+      {
+        "name": "sigmoid+polynomial",
+        "params": {
+          "gamma": 3,
+          "coef": 1,
+          "degree": 2
+        }
+      }
     ],
-    "joinByFunctions": [
-      "add"
-    ],
-    "components": [
-      2
-    ]
+    "components": 2
   },
   "experiment2": {
     "kernels": [
-      "rbf"
+      {
+        "name": "rbf",
+        "params": {
+          "gamma": 3
+        }
+      }
     ],
-    "components": [
-      2, 4
-    ]
+    "components": 2
   }
 }
