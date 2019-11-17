@@ -1,2 +1,2 @@
-# kcpa
-kcpa ensamble for classification
+# kpca
+kpca ensamble for classification
