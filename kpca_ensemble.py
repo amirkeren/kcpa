@@ -33,7 +33,7 @@ def run_experiment(dataset, experiment, kernels, classifier_config, components_n
         "components": n_components,
         "classifier": classifier_config,
         "dataset": dataset_name,
-        "accuracy": metrics.accuracy_score(y_test, df.mode(axis=1))
+        "accuracy": metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0])
     })
 
 
