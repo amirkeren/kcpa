@@ -25,7 +25,20 @@
         }
       }
     ],
-    "components": 2
+    "components": [
+      2
+    ],
+    "classifiers": [
+      {
+        "name": "decision_tree"
+      },
+      {
+        "name": "nearest_neighbors",
+        "params": {
+          "n_neighbors": 3
+        }
+      }
+    ]
   },
   "experiment2": {
     "kernels": [
@@ -36,6 +49,19 @@
         }
       }
     ],
-    "components": 2
+    "components": [
+      2
+    ],
+    "classifiers": [
+      {
+        "name": "decision_tree"
+      },
+      {
+        "name": "nearest_neighbors",
+        "params": {
+          "n_neighbors": 3
+        }
+      }
+    ]
   }
 }
