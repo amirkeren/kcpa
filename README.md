@@ -1,2 +1,2 @@
 # kpca
-kpca ensamble for classification
+kpca ensemble for classification
