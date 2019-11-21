@@ -30,7 +30,7 @@ def run_experiment(dataset, experiment, kernels, classifier_config, components_n
     output.put({
         "experiment": experiment,
         "kernels": kernels,
-        "components": n_components,
+        "components": components_num,
         "classifier": classifier_config,
         "dataset": dataset_name,
         "accuracy": metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0])
@@ -44,19 +44,26 @@ def write_results(dataset_name, data):
         json.dump(data, outfile)
 
 
-with open('experiments.json') as json_data_file:
-    experiments = json.load(json_data_file)
-    datasets = [f for f in listdir('datasets') if isfile(join('datasets', f))]
-    datasets.sort()
-    for dataset in [(dataset, pd.read_csv(join('datasets', dataset), header=None)) for dataset in datasets][1:]:
-        processes = []
-        for experiment_name, experiment_params in experiments.items():
-            for experiment_config in itertools.product(experiment_params['classifiers'], experiment_params['components']):
-                classifiers = experiment_config[0]
-                n_components = experiment_config[1]
-                p = mp.Process(target=run_experiment,
-                               args=(dataset, experiment_name, experiment_params['kernels'], classifiers, n_components))
-                processes.append(p)
-        for p in processes:
-            p.start()
-        write_results(dataset[0], [output.get() for p in processes])
+def main():
+    with open('experiments.json') as json_data_file:
+        experiments = json.load(json_data_file)
+        datasets = [f for f in listdir('datasets') if isfile(join('datasets', f))]
+        datasets.sort()
+        for dataset in [(dataset, pd.read_csv(join('datasets', dataset), header=None)) for dataset in datasets][1:]:
+            processes = []
+            print("Starting to run experiments on dataset", dataset[0])
+            for experiment_name, experiment_params in experiments.items():
+                for experiment_config in itertools.product(experiment_params['classifiers'], experiment_params['components']):
+                    classifiers = experiment_config[0]
+                    n_components = experiment_config[1]
+                    p = mp.Process(target=run_experiment,
+                                   args=(dataset, experiment_name, experiment_params['kernels'], classifiers, n_components))
+                    processes.append(p)
+            for p in processes:
+                p.start()
+            write_results(dataset[0], [output.get() for p in processes])
+            print("Finished running experiments on dataset", dataset[0])
+
+
+if __name__ == "__main__":
+    main()

@@ -2,10 +2,13 @@ from sklearn.metrics.pairwise import polynomial_kernel, rbf_kernel, linear_kerne
 from scipy.linalg import eigh
 import numpy as np
 import functools
+import warnings
 
 
 def get_kernel(x, kernel_config, n_components):
-    return _stepwise_kpca(_get_kernel(x, kernel_config), n_components)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return _stepwise_kpca(_get_kernel(x, kernel_config), n_components)
 
 
 def _get_kernel(x, kernel_config):
