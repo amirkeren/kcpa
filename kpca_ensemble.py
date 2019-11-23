@@ -27,9 +27,12 @@ def run_experiment(output, dataset, experiment, kernels, classifier_config, comp
         kernel_config = kernels[i]
         kernel_instances = kernel_config['instances']
         if kernel_instances > 1:
-            duplicate_kernel = copy.deepcopy(kernel_config)
-            duplicate_kernel['instances'] = 1
-            kernels.extend(list(itertools.repeat(duplicate_kernel, kernel_instances - 1)))
+            duplicated_kernels = []
+            for _ in range(kernel_instances - 1):
+                duplicate_kernel = copy.deepcopy(kernel_config)
+                duplicate_kernel['instances'] = 1
+                duplicated_kernels.append(duplicate_kernel)
+            kernels.extend(duplicated_kernels)
         kernel_name = kernel_config['name']
         kernel, kernel_params = get_kernel(x, kernel_config, components_num)
         kernel_config['run_params'] = kernel_params

@@ -29,39 +29,40 @@ def _get_kernel(x, kernel_config, euclid_distances):
     else:
         avg_euclid_distance = np.average(euclid_distances)
         if kernel_name == "polynomial":
-            multiplier = kernel_params['multiplier'] if 'multiplier' in kernel_params else 0.5
-            gamma = kernel_params['gamma'] if 'gamma' in kernel_params else 1 / (multiplier * np.max(euclid_distances))
-            coef0 = random.uniform(kernel_params['coef'][0], kernel_params['coef'][1]) * avg_euclid_distance
+            multiplier = kernel_params['poly_multiplier'] if 'poly_multiplier' in kernel_params else 0.5
+            gamma = kernel_params['poly_gamma'] if 'poly_gamma' in kernel_params \
+                else 1 / (multiplier * np.max(euclid_distances))
+            coef0 = random.uniform(kernel_params['poly_coef'][0], kernel_params['poly_coef'][1]) * avg_euclid_distance
             kernel_run_params = {
-                "multiplier": multiplier,
-                "gamma": gamma,
-                "coef0": coef0
+                "poly_multiplier": multiplier,
+                "poly_gamma": gamma,
+                "poly_coef0": coef0
             }
-            kernel_calculation = polynomial_kernel(x, gamma=gamma, coef0=coef0, degree=kernel_params['degree'])
+            kernel_calculation = polynomial_kernel(x, gamma=gamma, coef0=coef0, degree=kernel_params['poly_degree'])
         if kernel_name == "rbf":
-            r = random.uniform(kernel_params['r'][0], kernel_params['r'][1])
-            gamma = kernel_params['gamma'] if 'gamma' in kernel_params else 1 / pow(avg_euclid_distance, r)
+            r = random.uniform(kernel_params['rbf_r'][0], kernel_params['rbf_r'][1])
+            gamma = kernel_params['rbf_gamma'] if 'rbf_gamma' in kernel_params else 1 / pow(avg_euclid_distance, r)
             kernel_run_params = {
-                "r": r,
-                "gamma": gamma
+                "rbf_r": r,
+                "rbf_gamma": gamma
             }
             kernel_calculation = rbf_kernel(x, gamma=gamma)
         if kernel_name == "laplacian":
-            exp = kernel_params['exp'] if 'exp' in kernel_params else 5
-            gamma = kernel_params['gamma'] if 'gamma' in kernel_params else 1 / pow(avg_euclid_distance, exp)
+            exp = kernel_params['lap_exp'] if 'lap_exp' in kernel_params else 5
+            gamma = kernel_params['lap_gamma'] if 'lap_gamma' in kernel_params else 1 / pow(avg_euclid_distance, exp)
             kernel_run_params = {
-                "exo": exp,
-                "gamma": gamma
+                "lap_exp": exp,
+                "lap_gamma": gamma
             }
             kernel_calculation = laplacian_kernel(x, gamma=gamma)
         if kernel_name == "sigmoid":
-            exp = kernel_params['exp'] if 'exp' in kernel_params else 5
-            gamma = kernel_params['gamma'] if 'gamma' in kernel_params else 1 / pow(avg_euclid_distance, exp)
-            coef0 = random.uniform(kernel_params['coef'][0], kernel_params['coef'][1])
+            exp = kernel_params['sig_exp'] if 'sig_exp' in kernel_params else 5
+            gamma = kernel_params['sig_gamma'] if 'sig_gamma' in kernel_params else 1 / pow(avg_euclid_distance, exp)
+            coef0 = random.uniform(kernel_params['sig_coef'][0], kernel_params['sig_coef'][1])
             kernel_run_params = {
-                "exp": exp,
-                "gamma": gamma,
-                "coef0": coef0
+                "sig_exp": exp,
+                "sig_gamma": gamma,
+                "sig_coef0": coef0
             }
             kernel_calculation = sigmoid_kernel(x, gamma=gamma, coef0=coef0)
     return kernel_calculation, kernel_run_params
