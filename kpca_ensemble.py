@@ -1,5 +1,5 @@
-from os import listdir
-from os.path import isfile, join
+from os import listdir, makedirs
+from os.path import isfile, join, exists
 from kernels_manager import get_kernel
 from classifiers_manager import get_classifier
 from sklearn.model_selection import train_test_split
@@ -10,10 +10,11 @@ import multiprocessing as mp
 import json
 import itertools
 
-output = mp.Queue()
+DATASETS_FOLDER = 'datasets'
+RESULTS_FOLDER = 'results'
 
 
-def run_experiment(dataset, experiment, kernels, classifier_config, components_num):
+def run_experiment(output, dataset, experiment, kernels, classifier_config, components_num):
     dataset_name = dataset[0]
     df = dataset[1]
     x = df.iloc[:, :-1]
@@ -38,8 +39,10 @@ def run_experiment(dataset, experiment, kernels, classifier_config, components_n
 
 
 def write_results(dataset_name, data):
+    if not exists(RESULTS_FOLDER):
+        makedirs(RESULTS_FOLDER)
     current_time = strftime("%Y%m%d-%H%M%S", localtime())
-    filename = 'results/' + current_time + '-' + dataset_name + '.json'
+    filename = RESULTS_FOLDER + '/' + current_time + '-' + dataset_name + '.json'
     with open(filename, 'w') as outfile:
         json.dump(data, outfile)
 
@@ -47,17 +50,20 @@ def write_results(dataset_name, data):
 def main():
     with open('experiments.json') as json_data_file:
         experiments = json.load(json_data_file)
-        datasets = [f for f in listdir('datasets') if isfile(join('datasets', f))]
+        datasets = [f for f in listdir(DATASETS_FOLDER) if isfile(join(DATASETS_FOLDER, f))]
         datasets.sort()
-        for dataset in [(dataset, pd.read_csv(join('datasets', dataset), header=None)) for dataset in datasets][1:]:
-            processes = []
+        output = mp.Queue()
+        for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
             print("Starting to run experiments on dataset", dataset[0])
+            processes = []
             for experiment_name, experiment_params in experiments.items():
-                for experiment_config in itertools.product(experiment_params['classifiers'], experiment_params['components']):
+                for experiment_config in itertools.product(experiment_params['classifiers'],
+                                                           experiment_params['components']):
                     classifiers = experiment_config[0]
                     n_components = experiment_config[1]
                     p = mp.Process(target=run_experiment,
-                                   args=(dataset, experiment_name, experiment_params['kernels'], classifiers, n_components))
+                                   args=(output, dataset, experiment_name, experiment_params['kernels'], classifiers,
+                                         n_components))
                     processes.append(p)
             for p in processes:
                 p.start()
