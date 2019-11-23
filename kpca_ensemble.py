@@ -9,6 +9,7 @@ import pandas as pd
 import multiprocessing as mp
 import json
 import itertools
+import copy
 
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
@@ -21,13 +22,22 @@ def run_experiment(output, dataset, experiment, kernels, classifier_config, comp
     components_num = components_num if isinstance(components_num, int) else x.shape[1] // 2
     y = df.iloc[:, -1]
     results = {}
-    for kernel_config in kernels:
+    i = 0
+    while i < len(kernels):
+        kernel_config = kernels[i]
+        kernel_instances = kernel_config['instances']
+        if kernel_instances > 1:
+            duplicate_kernel = copy.deepcopy(kernel_config)
+            duplicate_kernel['instances'] = 1
+            kernels.extend(list(itertools.repeat(duplicate_kernel, kernel_instances - 1)))
         kernel_name = kernel_config['name']
-        kernel = get_kernel(x, kernel_config, components_num)
+        kernel, kernel_params = get_kernel(x, kernel_config, components_num)
+        kernel_config['run_params'] = kernel_params
         X_train, X_test, y_train, y_test = train_test_split(kernel, y, test_size=0.3, random_state=42)
         clf = get_classifier(classifier_config)
         clf = clf.fit(X_train, y_train)
         results[kernel_name] = clf.predict(X_test)
+        i += 1
     df = pd.DataFrame.from_dict(results)
     output.put({
         "experiment": experiment,
