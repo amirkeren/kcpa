@@ -4,7 +4,7 @@ from kernels_manager import get_kernel
 from classifiers_manager import get_classifier
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
-from time import localtime, strftime
+from time import localtime, strftime, ctime
 import pandas as pd
 import multiprocessing as mp
 import json
@@ -18,6 +18,7 @@ def run_experiment(output, dataset, experiment, kernels, classifier_config, comp
     dataset_name = dataset[0]
     df = dataset[1]
     x = df.iloc[:, :-1]
+    components_num = components_num if isinstance(components_num, int) else x.shape[1] // 2
     y = df.iloc[:, -1]
     results = {}
     for kernel_config in kernels:
@@ -54,7 +55,7 @@ def main():
         datasets.sort()
         output = mp.Queue()
         for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
-            print("Starting to run experiments on dataset", dataset[0])
+            print(ctime(), "Starting to run experiments on dataset", dataset[0])
             processes = []
             for experiment_name, experiment_params in experiments.items():
                 for experiment_config in itertools.product(experiment_params['classifiers'],
@@ -68,7 +69,7 @@ def main():
             for p in processes:
                 p.start()
             write_results(dataset[0], [output.get() for p in processes])
-            print("Finished running experiments on dataset", dataset[0])
+            print(ctime(), "Finished running experiments on dataset", dataset[0])
 
 
 if __name__ == "__main__":
