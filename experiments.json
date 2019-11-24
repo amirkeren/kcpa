@@ -7,7 +7,7 @@
           "poly_coef": [0.5, 1.5],
           "sig_coef": [-1, 0]
         },
-        "instances": 1
+        "instances": 5
       }
     ],
     "components": [
