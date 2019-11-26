@@ -25,7 +25,7 @@ def run_experiment(output, dataset, experiment, kernels, classifier_config, comp
     i = 0
     while i < len(kernels):
         kernel_config = kernels[i]
-        kernel_instances = kernel_config['instances']
+        kernel_instances = kernel_config['instances'] if 'instances' in kernel_config else 10
         if kernel_instances > 1:
             duplicated_kernels = []
             for _ in range(kernel_instances - 1):
@@ -55,7 +55,7 @@ def run_experiment(output, dataset, experiment, kernels, classifier_config, comp
 def write_results(dataset_name, data):
     if not exists(RESULTS_FOLDER):
         makedirs(RESULTS_FOLDER)
-    current_time = strftime("%Y%m%d-%H%M%S", localtime())
+    current_time = strftime('%Y%m%d-%H%M%S', localtime())
     filename = RESULTS_FOLDER + '/' + current_time + '-' + dataset_name + '.json'
     with open(filename, 'w') as outfile:
         json.dump(data, outfile)
@@ -68,11 +68,19 @@ def main():
         datasets.sort()
         output = mp.Queue()
         for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
-            print(ctime(), "Starting to run experiments on dataset", dataset[0])
+            print(ctime(), 'Starting to run experiments on dataset', dataset[0])
             processes = []
             for experiment_name, experiment_params in experiments.items():
-                for experiment_config in itertools.product(experiment_params['classifiers'],
-                                                           experiment_params['components']):
+                components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
+                classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params else [
+                  {
+                    "name": "decision_tree"
+                  },
+                  {
+                    "name": "nearest_neighbors"
+                  }
+                ]
+                for experiment_config in itertools.product(classifiers_list, components):
                     classifiers = experiment_config[0]
                     n_components = experiment_config[1]
                     p = mp.Process(target=run_experiment,
@@ -82,8 +90,8 @@ def main():
             for p in processes:
                 p.start()
             write_results(dataset[0], [output.get() for p in processes])
-            print(ctime(), "Finished running experiments on dataset", dataset[0])
+            print(ctime(), 'Finished running experiments on dataset', dataset[0])
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

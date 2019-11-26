@@ -1,24 +1,50 @@
 {
-  "experiment1": {
+  "ensemble1": {
     "kernels": [
       {
-        "name": "sigmoid+polynomial",
-        "params": {
-          "poly_coef": [0.5, 1.5],
-          "sig_coef": [-1, 0]
-        },
-        "instances": 5
+        "name": "rbf"
       }
-    ],
-    "components": [
-      10, "0.5d"
-    ],
-    "classifiers": [
+    ]
+  },
+  "ensemble2": {
+    "kernels": [
       {
-        "name": "decision_tree"
-      },
+        "name": "polynomial"
+      }
+    ]
+  },
+  "ensemble3": {
+    "kernels": [
       {
-        "name": "nearest_neighbors"
+        "name": "rbf+sigmoid"
+      }
+    ]
+  },
+  "ensemble4": {
+    "kernels": [
+      {
+        "name": "rbf*polynomial"
+      }
+    ]
+  },
+  "ensemble5": {
+    "kernels": [
+      {
+        "name": "rbf+polynomial"
+      }
+    ]
+  },
+  "ensemble6": {
+    "kernels": [
+      {
+        "name": "sigmoid"
+      }
+    ]
+  },
+  "ensemble6": {
+    "kernels": [
+      {
+        "name": "sigmoid"
       }
     ]
   }
