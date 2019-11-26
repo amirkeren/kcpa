@@ -10,9 +10,27 @@ import multiprocessing as mp
 import json
 import itertools
 import copy
+import smtplib
 
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
+
+
+def send_email(user, pwd, recipient, subject, body):
+    TO = recipient if type(recipient) is list else [recipient]
+    SUBJECT = subject
+    TEXT = body
+    message = """From: %s\nTo: %s\nSubject: %s\n\n%s""" % (user, ", ".join(TO), SUBJECT, TEXT)
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.ehlo()
+        server.starttls()
+        server.login(user, pwd)
+        server.sendmail(user, TO, message)
+        server.close()
+        print('Email sent successfully')
+    except:
+        print('Failed to send mail')
 
 
 def run_experiment(output, dataset, experiment, kernels, classifier_config, components_num):
@@ -66,6 +84,7 @@ def write_results(dataset_name, data):
     filename = RESULTS_FOLDER + '/' + current_time + '-' + dataset_name + '.json'
     with open(filename, 'w') as outfile:
         json.dump(data, outfile)
+    return json.dumps(data)
 
 
 def main():
@@ -74,6 +93,7 @@ def main():
         datasets = [f for f in listdir(DATASETS_FOLDER) if isfile(join(DATASETS_FOLDER, f))]
         datasets.sort()
         output = mp.Queue()
+        result_json = ''
         for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
             print(ctime(), 'Starting to run experiments on dataset', dataset[0])
             processes = []
@@ -96,8 +116,9 @@ def main():
                     processes.append(p)
             for p in processes:
                 p.start()
-            write_results(dataset[0], [output.get() for p in processes])
+            result_json += write_results(dataset[0], [output.get() for p in processes])
             print(ctime(), 'Finished running experiments on dataset', dataset[0])
+        send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', result_json)
 
 
 if __name__ == '__main__':
