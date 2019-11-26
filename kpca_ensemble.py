@@ -2,7 +2,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernels_manager import get_kernel
 from classifiers_manager import get_classifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
 from sklearn import metrics
 from time import localtime, strftime, ctime
 import pandas as pd
@@ -18,9 +18,9 @@ RESULTS_FOLDER = 'results'
 def run_experiment(output, dataset, experiment, kernels, classifier_config, components_num):
     dataset_name = dataset[0]
     df = dataset[1]
-    x = df.iloc[:, :-1]
-    components_num = components_num if isinstance(components_num, int) else x.shape[1] // 2
+    X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
+    components_num = components_num if isinstance(components_num, int) else X.shape[1] // 2
     results = {}
     i = 0
     while i < len(kernels):
@@ -33,14 +33,21 @@ def run_experiment(output, dataset, experiment, kernels, classifier_config, comp
                 duplicate_kernel['instances'] = 1
                 duplicated_kernels.append(duplicate_kernel)
             kernels.extend(duplicated_kernels)
+        i += 1
+    kf = KFold(n_splits=len(kernels), random_state=42)
+    kf.get_n_splits(X)
+    for i, (train_index, test_index) in enumerate(kf.split(X)):
+        kernel, kernel_params = get_kernel(X, kernel_config, components_num)
+        kernel_config = kernels[i]
         kernel_name = kernel_config['name']
-        kernel, kernel_params = get_kernel(x, kernel_config, components_num)
         kernel_config['run_params'] = kernel_params
-        X_train, X_test, y_train, y_test = train_test_split(kernel, y, test_size=0.3, random_state=42)
+        X_train, X_test = kernel[train_index[0]: train_index[len(train_index) - 1], :], \
+            kernel[test_index[0]: test_index[len(test_index) - 1], :]
+        y_train, y_test = y[train_index[0]: train_index[len(train_index) - 1]], \
+            y[test_index[0]: test_index[len(test_index) - 1]]
         clf = get_classifier(classifier_config)
         clf = clf.fit(X_train, y_train)
         results[kernel_name] = clf.predict(X_test)
-        i += 1
     df = pd.DataFrame.from_dict(results)
     output.put({
         "experiment": experiment,
