@@ -65,6 +65,8 @@ def _get_kernel(x, kernel_config, euclid_distances):
                 "sig_coef0": coef0
             }
             kernel_calculation = sigmoid_kernel(x, gamma=gamma, coef0=coef0)
+    if kernel_calculation is None:
+        raise NotImplementedError('Unsupported kernel')
     return kernel_calculation, kernel_run_params
 
 

@@ -1,7 +1,7 @@
 from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernels_manager import get_kernel
-from classifiers_manager import get_classifier
+from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import KFold
 from sklearn import metrics
 from time import localtime, strftime, ctime
@@ -108,14 +108,8 @@ def main():
             processes = []
             for experiment_name, experiment_params in experiments.items():
                 components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
-                classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params else [
-                  {
-                    "name": "decision_tree"
-                  },
-                  {
-                    "name": "nearest_neighbors"
-                  }
-                ]
+                classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
+                    else CLASSIFIERS
                 for experiment_config in itertools.product(classifiers_list, components):
                     classifiers = experiment_config[0]
                     n_components = experiment_config[1]
