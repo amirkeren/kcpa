@@ -37,7 +37,6 @@ def run_experiments(output, dataset, experiments):
     print(ctime(), 'Starting to run experiments on dataset', dataset_name)
     intermediate_results = []
     for experiment_name, experiment_params in experiments.items():
-        kernels = experiment_params['kernels']
         components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
         classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
             else CLASSIFIERS
@@ -50,6 +49,7 @@ def run_experiments(output, dataset, experiments):
             components_num = components_num if isinstance(components_num, int) else X.shape[1] // 2
             results = {}
             i = 0
+            kernels = copy.deepcopy(experiment_params['kernels'])
             while i < len(kernels):
                 kernel_config = kernels[i]
                 kernel_instances = kernel_config['instances'] if 'instances' in kernel_config else 10
@@ -61,8 +61,7 @@ def run_experiments(output, dataset, experiments):
                         duplicated_kernels.append(duplicate_kernel)
                     kernels.extend(duplicated_kernels)
                 i += 1
-            kf = KFold(n_splits=len(kernels), random_state=0)
-            kf.get_n_splits(X)
+            kf = KFold(n_splits=len(kernels))
             for i, (train_index, test_index) in enumerate(kf.split(X)):
                 try:
                     kernel, kernel_params = get_kernel(X, kernel_config, components_num)
@@ -76,9 +75,9 @@ def run_experiments(output, dataset, experiments):
                     clf = get_classifier(classifier_config)
                     clf = clf.fit(X_train, y_train)
                     results[kernel_name] = clf.predict(X_test)
-                except:
+                except Exception as e:
                     print('Error calculating kernel - ', dataset_name, kernel_name, kernel_params,
-                          classifier_config['name'], components_num)
+                          classifier_config['name'], components_num, e)
             df = pd.DataFrame.from_dict(results)
             accuracy = metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0])
             intermediate_results.append(([dataset_name, experiment_name, classifier_config['name'], components_num, accuracy], {
