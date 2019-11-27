@@ -10,9 +10,9 @@ CLASSIFIERS = [
     {
         "name": "nearest_neighbors"
     },
-    # {
-    #     "name": "random_forest"
-    # },
+    {
+        "name": "random_forest"
+    },
     {
         "name": "ada_boost"
     },
