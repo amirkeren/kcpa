@@ -14,19 +14,18 @@ import smtplib
 
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
+DATAFRAME_COLUNMS = ['Dataset', 'Experiment', 'Classifier', 'Components', 'Accuracy']
 
 
 def send_email(user, pwd, recipient, subject, body):
-    TO = recipient if type(recipient) is list else [recipient]
-    SUBJECT = subject
-    TEXT = body
-    message = """From: %s\nTo: %s\nSubject: %s\n\n%s""" % (user, ", ".join(TO), SUBJECT, TEXT)
+    to = recipient if type(recipient) is list else [recipient]
+    message = """From: %s\nTo: %s\nSubject: %s\n\n%s""" % (user, ", ".join(to), subject, body)
     try:
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.ehlo()
         server.starttls()
         server.login(user, pwd)
-        server.sendmail(user, TO, message)
+        server.sendmail(user, to, message)
         server.close()
         print('Email sent successfully')
     except:
@@ -67,17 +66,25 @@ def run_experiment(output, dataset, experiment, kernels, classifier_config, comp
         clf = clf.fit(X_train, y_train)
         results[kernel_name] = clf.predict(X_test)
     df = pd.DataFrame.from_dict(results)
-    output.put({
+    accuracy = metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0])
+    output.put(([dataset_name, experiment, classifier_config['name'], components_num, accuracy], {
         "experiment": experiment,
         "kernels": kernels,
         "components": components_num,
         "classifier": classifier_config,
         "dataset": dataset_name,
-        "accuracy": metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0])
-    })
+        "accuracy": accuracy
+    }))
 
 
-def write_results(dataset_name, data):
+def write_results_to_csv(dataframe):
+    if not exists(RESULTS_FOLDER):
+        makedirs(RESULTS_FOLDER)
+    current_time = strftime('%Y%m%d-%H%M%S', localtime())
+    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv')
+
+
+def write_results_to_json(dataset_name, data):
     if not exists(RESULTS_FOLDER):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
@@ -89,13 +96,15 @@ def write_results(dataset_name, data):
 
 def main():
     with open('experiments.json') as json_data_file:
+        print(ctime(), 'Starting to run experiments')
         experiments = json.load(json_data_file)
         datasets = [f for f in listdir(DATASETS_FOLDER) if isfile(join(DATASETS_FOLDER, f))]
         datasets.sort()
         output = mp.Queue()
-        result_json = ''
+        df = pd.DataFrame([], columns=DATAFRAME_COLUNMS)
         for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
-            print(ctime(), 'Starting to run experiments on dataset', dataset[0])
+            dataset_name = dataset[0]
+            print(ctime(), 'Starting to run experiments on dataset', dataset_name)
             processes = []
             for experiment_name, experiment_params in experiments.items():
                 components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
@@ -116,9 +125,14 @@ def main():
                     processes.append(p)
             for p in processes:
                 p.start()
-            result_json += write_results(dataset[0], [output.get() for p in processes])
-            print(ctime(), 'Finished running experiments on dataset', dataset[0])
-        send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', result_json)
+            results = [output.get() for p in processes]
+            df = df.append(pd.DataFrame([dataframe[0] for dataframe in results], columns=DATAFRAME_COLUNMS))
+            print(ctime(), 'Finished running experiments on dataset', dataset_name)
+            write_results_to_json(dataset_name, [dataframe[1] for dataframe in results])
+        print(ctime(), 'Finished running all experiments')
+        result_df = df.sort_values(['Dataset', 'Accuracy'], ascending=[True, False])
+        write_results_to_csv(result_df)
+        send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', result_df)
 
 
 if __name__ == '__main__':
