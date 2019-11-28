@@ -76,7 +76,9 @@ def run_experiments(output, dataset, experiments):
                 results[kernel_name] = clf.predict(X_test)
             df = pd.DataFrame.from_dict(results)
             accuracy = metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0])
-            intermediate_results.append(([dataset_name, experiment_name, classifier_config['name'], components_num, accuracy], {
+            result_list = [dataset_name, experiment_name, classifier_config['name'], components_num, accuracy]
+            print(ctime(), *result_list)
+            intermediate_results.append((result_list, {
                 "experiment": experiment_name,
                 "kernels": kernels,
                 "components": components_num,
