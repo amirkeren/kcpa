@@ -32,6 +32,21 @@ def send_email(user, pwd, recipient, subject, body):
         print('Failed to send mail')
 
 
+def write_results_to_csv(dataframe):
+    if not exists(RESULTS_FOLDER):
+        makedirs(RESULTS_FOLDER)
+    current_time = strftime('%Y%m%d-%H%M%S', localtime())
+    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv')
+
+
+def write_results_to_json(dataset_name, data):
+    if not exists(RESULTS_FOLDER):
+        makedirs(RESULTS_FOLDER)
+    current_time = strftime('%Y%m%d-%H%M%S', localtime())
+    with open(RESULTS_FOLDER + '/' + current_time + '-' + dataset_name + '.json', 'w') as outfile:
+        json.dump(data, outfile)
+
+
 def run_experiments(output, dataset, experiments):
     dataset_name = dataset[0]
     print(ctime(), 'Starting to run experiments on dataset', dataset_name)
@@ -87,24 +102,8 @@ def run_experiments(output, dataset, experiments):
                 "accuracy": accuracy
             }))
     print(ctime(), 'Finished running experiments on dataset', dataset_name)
+    write_results_to_json(dataset_name, [intermediate_result[1] for intermediate_result in intermediate_results])
     output.put(intermediate_results)
-
-
-def write_results_to_csv(dataframe):
-    if not exists(RESULTS_FOLDER):
-        makedirs(RESULTS_FOLDER)
-    current_time = strftime('%Y%m%d-%H%M%S', localtime())
-    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv')
-
-
-def write_results_to_json(dataset_name, data):
-    if not exists(RESULTS_FOLDER):
-        makedirs(RESULTS_FOLDER)
-    current_time = strftime('%Y%m%d-%H%M%S', localtime())
-    filename = RESULTS_FOLDER + '/' + current_time + '-' + dataset_name + '.json'
-    with open(filename, 'w') as outfile:
-        json.dump(data, outfile)
-    return json.dumps(data)
 
 
 def main():
@@ -117,7 +116,6 @@ def main():
         df = pd.DataFrame([], columns=DATAFRAME_COLUNMS)
         processes = []
         for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
-            dataset_name = dataset[0]
             p = mp.Process(target=run_experiments, args=(output, dataset, experiments))
             processes.append(p)
         for p in processes:
@@ -126,7 +124,6 @@ def main():
         print(ctime(), 'Finished running all experiments')
         for process_results in results:
             df = df.append(pd.DataFrame([dataframe[0] for dataframe in process_results], columns=DATAFRAME_COLUNMS))
-            write_results_to_json(dataset_name, [dataframe[1] for dataframe in process_results])
         result_df = df.sort_values(['Dataset', 'Accuracy'], ascending=[True, False])
         write_results_to_csv(result_df)
         send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', result_df)
