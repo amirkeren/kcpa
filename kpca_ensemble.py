@@ -2,7 +2,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernels_manager import get_kernel
 from classifiers_manager import get_classifier, CLASSIFIERS
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import KFold, train_test_split
 from sklearn import metrics
 from time import localtime, strftime, ctime
 import pandas as pd
@@ -79,8 +79,11 @@ def run_baseline(dataset_name, X, y):
     X = X.to_numpy()
     y = y.to_numpy()
     for classifier_config in CLASSIFIERS:
-        accuracy = np.mean(cross_val_score(get_classifier(classifier_config), X, y, cv=DEFAULT_NUMBER_OF_KERNELS))
-        result_list = [dataset_name, experiment_name, classifier_config['name'], 'N/A', round(accuracy, 5)]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+        clf = get_classifier(classifier_config)
+        clf.fit(X_train, y_train)
+        accuracy = round(metrics.accuracy_score(y_test, clf.predict(X_test)), 5)
+        result_list = [dataset_name, experiment_name, classifier_config['name'], 'N/A', accuracy]
         intermediate_results.append((result_list, build_results_json(result_list)))
     return intermediate_results
 
