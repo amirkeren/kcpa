@@ -2,10 +2,11 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernels_manager import get_kernel
 from classifiers_manager import get_classifier, CLASSIFIERS
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, cross_val_score
 from sklearn import metrics
 from time import localtime, strftime, ctime
 import pandas as pd
+import numpy as np
 import multiprocessing as mp
 import json
 import itertools
@@ -15,6 +16,7 @@ import smtplib
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
 DATAFRAME_COLUNMS = ['Dataset', 'Experiment', 'Classifier', 'Components', 'Accuracy']
+DEFAULT_NUMBER_OF_KERNELS = 10
 
 
 def send_email(user, pwd, recipient, subject, body):
@@ -43,14 +45,54 @@ def write_results_to_json(dataset_name, data):
     if not exists(RESULTS_FOLDER):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
+    print(data)
     with open(RESULTS_FOLDER + '/' + current_time + '-' + dataset_name + '.json', 'w') as outfile:
         json.dump(data, outfile)
+
+
+def get_total_number_of_experiments(experiments):
+    count = 0
+    for experiment_name, experiment_params in experiments.items():
+        components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
+        classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
+            else CLASSIFIERS
+        for _ in itertools.product(classifiers_list, components):
+            count += 1
+    return count
+
+
+def build_results_json(result_list, kernels={}):
+    return {
+        "dataset": result_list[0],
+        "experiment": result_list[1],
+        "classifier": result_list[2],
+        "components": result_list[3],
+        "accuracy": result_list[4],
+        "kernels": kernels
+    }
+
+
+def run_baseline(dataset_name, X, y):
+    intermediate_results = []
+    experiment_name = 'baseline'
+    X = X.to_numpy()
+    y = y.to_numpy()
+    for classifier_config in CLASSIFIERS:
+        accuracy = np.average(cross_val_score(get_classifier(classifier_config), X, y, cv=DEFAULT_NUMBER_OF_KERNELS))
+        result_list = [dataset_name, experiment_name, classifier_config['name'], 'N/A', round(accuracy, 5)]
+        intermediate_results.append((result_list, build_results_json(result_list)))
+    return intermediate_results
 
 
 def run_experiments(output, dataset, experiments):
     dataset_name = dataset[0]
     print(ctime(), 'Starting to run experiments on dataset', dataset_name)
-    intermediate_results = []
+    total_number_of_experiments = get_total_number_of_experiments(experiments)
+    df = dataset[1]
+    X = df.iloc[:, :-1]
+    y = df.iloc[:, -1]
+    intermediate_results = run_baseline(dataset_name, X, y)
+    count = 0
     for experiment_name, experiment_params in experiments.items():
         components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
         classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
@@ -58,16 +100,14 @@ def run_experiments(output, dataset, experiments):
         for experiment_config in itertools.product(classifiers_list, components):
             classifier_config = experiment_config[0]
             components_num = experiment_config[1]
-            df = dataset[1]
-            X = df.iloc[:, :-1]
-            y = df.iloc[:, -1]
             components_num = components_num if isinstance(components_num, int) else X.shape[1] // 2
             results = {}
             i = 0
             kernels = copy.deepcopy(experiment_params['kernels'])
             while i < len(kernels):
                 kernel_config = kernels[i]
-                kernel_instances = kernel_config['instances'] if 'instances' in kernel_config else 10
+                kernel_instances = kernel_config['instances'] if 'instances' in kernel_config \
+                    else DEFAULT_NUMBER_OF_KERNELS
                 if kernel_instances > 1:
                     duplicated_kernels = []
                     for _ in range(kernel_instances - 1):
@@ -90,17 +130,11 @@ def run_experiments(output, dataset, experiments):
                 clf = clf.fit(X_train, y_train)
                 results[kernel_name] = clf.predict(X_test)
             df = pd.DataFrame.from_dict(results)
-            accuracy = metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0])
+            accuracy = np.round(metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0]), 5)
             result_list = [dataset_name, experiment_name, classifier_config['name'], components_num, accuracy]
-            print(ctime(), *result_list)
-            intermediate_results.append((result_list, {
-                "experiment": experiment_name,
-                "kernels": kernels,
-                "components": components_num,
-                "classifier": classifier_config,
-                "dataset": dataset_name,
-                "accuracy": accuracy
-            }))
+            count += 1
+            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), *result_list)
+            intermediate_results.append((result_list, build_results_json(result_list, kernels)))
     print(ctime(), 'Finished running experiments on dataset', dataset_name)
     write_results_to_json(dataset_name, [intermediate_result[1] for intermediate_result in intermediate_results])
     output.put(intermediate_results)
