@@ -38,7 +38,8 @@ def write_results_to_csv(dataframe):
     if not exists(RESULTS_FOLDER):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
-    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv')
+    dataframe = dataframe[['Rank'] + DATAFRAME_COLUNMS]
+    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv', index=False)
 
 
 def write_results_to_json(dataset_name, data):
@@ -78,7 +79,7 @@ def run_baseline(dataset_name, X, y):
     X = X.to_numpy()
     y = y.to_numpy()
     for classifier_config in CLASSIFIERS:
-        accuracy = np.average(cross_val_score(get_classifier(classifier_config), X, y, cv=DEFAULT_NUMBER_OF_KERNELS))
+        accuracy = np.mean(cross_val_score(get_classifier(classifier_config), X, y, cv=DEFAULT_NUMBER_OF_KERNELS))
         result_list = [dataset_name, experiment_name, classifier_config['name'], 'N/A', round(accuracy, 5)]
         intermediate_results.append((result_list, build_results_json(result_list)))
     return intermediate_results
@@ -91,7 +92,8 @@ def run_experiments(output, dataset, experiments):
     df = dataset[1]
     X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
-    intermediate_results = run_baseline(dataset_name, X, y)
+    # intermediate_results = run_baseline(dataset_name, X, y)
+    intermediate_results = []
     count = 0
     for experiment_name, experiment_params in experiments.items():
         components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
@@ -154,13 +156,15 @@ def main():
             processes.append(p)
         for p in processes:
             p.start()
-        results = [output.get() for p in processes]
+        results = [output.get() for _ in processes]
         print(ctime(), 'Finished running all experiments')
         for process_results in results:
-            df = df.append(pd.DataFrame([dataframe[0] for dataframe in process_results], columns=DATAFRAME_COLUNMS))
-        result_df = df.sort_values(['Dataset', 'Accuracy'], ascending=[True, False])
-        write_results_to_csv(result_df)
-        send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', result_df)
+            temp_df = pd.DataFrame([dataframe[0] for dataframe in process_results], columns=DATAFRAME_COLUNMS)
+            temp_df = temp_df.sort_values(by='Accuracy', ascending=False)
+            temp_df['Rank'] = range(1, 1 + len(temp_df))
+            df = df.append(temp_df)
+        write_results_to_csv(df)
+        send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', df)
 
 
 if __name__ == '__main__':
