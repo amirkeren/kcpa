@@ -92,8 +92,7 @@ def run_experiments(output, dataset, experiments):
     df = dataset[1]
     X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
-    # intermediate_results = run_baseline(dataset_name, X, y)
-    intermediate_results = []
+    intermediate_results = run_baseline(dataset_name, X, y)
     count = 0
     for experiment_name, experiment_params in experiments.items():
         components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
