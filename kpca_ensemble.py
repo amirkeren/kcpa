@@ -1,6 +1,6 @@
 from os import listdir, makedirs
 from os.path import isfile, join, exists
-from kernels_manager import get_kernel
+from kernels_manager import get_kernel, stepwise_kpca
 from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import KFold, train_test_split
 from sklearn import metrics
@@ -15,7 +15,7 @@ import smtplib
 
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
-DATAFRAME_COLUNMS = ['Dataset', 'Experiment', 'Classifier', 'Components', 'Accuracy']
+DATAFRAME_COLUNMS = ['Dataset', 'Experiment', 'Classifier', 'Components', 'Folds', 'Accuracy']
 DEFAULT_NUMBER_OF_KERNELS = 10
 
 
@@ -99,11 +99,13 @@ def run_experiments(output, dataset, experiments):
     count = 0
     for experiment_name, experiment_params in experiments.items():
         components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
+        cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params else [10, 2]
         classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
             else CLASSIFIERS
-        for experiment_config in itertools.product(classifiers_list, components):
+        for experiment_config in itertools.product(classifiers_list, components, cross_validation):
             classifier_config = experiment_config[0]
             components_num = experiment_config[1]
+            cross_validation = experiment_config[2]
             components_num = components_num if isinstance(components_num, int) else X.shape[1] // 2
             results = {}
             i = 0
@@ -120,28 +122,49 @@ def run_experiments(output, dataset, experiments):
                         duplicated_kernels.append(duplicate_kernel)
                     kernels.extend(duplicated_kernels)
                 i += 1
-            kf = KFold(n_splits=len(kernels))
-            for i, (train_index, test_index) in enumerate(kf.split(X)):
-                kernel, kernel_params = get_kernel(X, kernel_config, components_num)
-                kernel_config = kernels[i]
-                kernel_name = kernel_config['name']
-                kernel_config['run_params'] = kernel_params
-                X_train, X_test = kernel[train_index[0]: train_index[len(train_index) - 1], :], \
-                    kernel[test_index[0]: test_index[len(test_index) - 1], :]
-                y_train, y_test = y[train_index[0]: train_index[len(train_index) - 1]], \
-                    y[test_index[0]: test_index[len(test_index) - 1]]
-                clf = get_classifier(classifier_config)
-                clf = clf.fit(X_train, y_train)
-                results[kernel_name] = clf.predict(X_test)
-            df = pd.DataFrame.from_dict(results)
-            accuracy = np.round(metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0]), 5)
-            result_list = [dataset_name, experiment_name, classifier_config['name'], components_num, accuracy]
+            accuracies = []
+            if cross_validation == 2:  # 5x2 cross validation
+                if len(kernels) < 5:
+                    raise Exception('Cannot perform 5x2 cross validation with an ensemble of less than 5 kernels')
+                random_states = [0, 7, 9, 23, 42]
+                for i in range(5):
+                    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5,
+                                                                        random_state=random_states[i])
+                    kernel_config = kernels[i]
+                    kernel_name = kernel_config['name'] + '_' + str(i)
+                    results[kernel_name] = train_predict(X_train, X_test, y_train, classifier_config, kernel_config,
+                                                         components_num)
+                df = pd.DataFrame.from_dict(results)
+                accuracies.append(metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0]))
+            else:
+                kf = KFold(n_splits=cross_validation)
+                for train_index, test_index in kf.split(X):
+                    results = {}
+                    X_train, X_test = X.values[train_index], X.values[test_index]
+                    y_train, y_test = y.values[train_index], y.values[test_index]
+                    for i, kernel_config in enumerate(kernels):
+                        kernel_name = kernel_config['name'] + '_' + str(i)
+                        results[kernel_name] = train_predict(X_train, X_test, y_train, classifier_config, kernel_config,
+                                                             components_num)
+                    df = pd.DataFrame.from_dict(results)
+                    accuracies.append(metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0]))
+            result_list = [dataset_name, experiment_name, classifier_config['name'], components_num, cross_validation,
+                           round(np.asarray(accuracies).mean(), 5)]
             count += 1
             print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), *result_list)
             intermediate_results.append((result_list, build_results_json(result_list, kernels)))
     print(ctime(), 'Finished running experiments on dataset', dataset_name)
     write_results_to_json(dataset_name, [intermediate_result[1] for intermediate_result in intermediate_results])
     output.put(intermediate_results)
+
+
+def train_predict(X_train, X_test, y_train, classifier_config, kernel_config, components_num):
+    kernel_calculation, kernel_params = get_kernel(X_train, kernel_config)
+    train_kernel = stepwise_kpca(kernel_calculation, components_num)
+    test_kernel = stepwise_kpca(get_kernel(X_test, kernel_config, kernel_params)[0], components_num)
+    clf = get_classifier(classifier_config)
+    clf = clf.fit(train_kernel, y_train)
+    return clf.predict(test_kernel)
 
 
 def main():
