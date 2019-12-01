@@ -2,6 +2,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.naive_bayes import GaussianNB
+from rotation_forest import RotationForestClassifier
 
 CLASSIFIERS = [
     {
@@ -18,6 +19,9 @@ CLASSIFIERS = [
     },
     {
         "name": "gaussian_nb"
+    },
+    {
+        "name": "rotation_forest"
     }
 ]
 
@@ -46,4 +50,9 @@ def get_classifier(classifier_config):
         return AdaBoostClassifier(random_state=0)
     if classifier_name == 'gaussian_nb':
         return GaussianNB()
+    if classifier_name == 'rotation_forest':
+        if classifier_params:
+            return RotationForestClassifier(max_depth=classifier_params['max_depth'],
+                                            n_estimators=classifier_params['n_estimators'], random_state=0)
+        return RotationForestClassifier(random_state=0)
     raise NotImplementedError('Unsupported classifier')

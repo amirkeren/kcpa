@@ -15,8 +15,11 @@ import smtplib
 
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
-DATAFRAME_COLUNMS = ['Dataset', 'Experiment', 'Classifier', 'Components', 'Folds', 'Accuracy']
+DATAFRAME_COLUNMS = ['Dataset', 'Experiment', 'Classifier', 'Components', 'Folds', 'Accuracy', 'Kernels']
 DEFAULT_NUMBER_OF_KERNELS = 10
+ACCURACY_FLOATING_POINT = 5
+DEFAULT_NUMBER_OF_COMPONENTS = [10, '0.5d']
+DEFAULT_CROSS_VALIDATION = [10, 2]
 
 
 def send_email(user, pwd, recipient, subject, body):
@@ -42,35 +45,18 @@ def write_results_to_csv(dataframe):
     dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv', index=False)
 
 
-def write_results_to_json(dataset_name, data):
-    if not exists(RESULTS_FOLDER):
-        makedirs(RESULTS_FOLDER)
-    current_time = strftime('%Y%m%d-%H%M%S', localtime())
-    print(data)
-    with open(RESULTS_FOLDER + '/' + current_time + '-' + dataset_name + '.json', 'w') as outfile:
-        json.dump(data, outfile)
-
-
 def get_total_number_of_experiments(experiments):
     count = 0
     for experiment_name, experiment_params in experiments.items():
-        components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
+        components = experiment_params['components'] if 'components' in experiment_params \
+            else DEFAULT_NUMBER_OF_COMPONENTS
+        cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params \
+            else DEFAULT_CROSS_VALIDATION
         classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
             else CLASSIFIERS
-        for _ in itertools.product(classifiers_list, components):
+        for _ in itertools.product(classifiers_list, components, cross_validation):
             count += 1
     return count
-
-
-def build_results_json(result_list, kernels={}):
-    return {
-        "dataset": result_list[0],
-        "experiment": result_list[1],
-        "classifier": result_list[2],
-        "components": result_list[3],
-        "accuracy": result_list[4],
-        "kernels": kernels
-    }
 
 
 def run_baseline(dataset_name, X, y):
@@ -82,9 +68,9 @@ def run_baseline(dataset_name, X, y):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
         clf = get_classifier(classifier_config)
         clf.fit(X_train, y_train)
-        accuracy = round(metrics.accuracy_score(y_test, clf.predict(X_test)), 5)
-        result_list = [dataset_name, experiment_name, classifier_config['name'], 'N/A', accuracy]
-        intermediate_results.append((result_list, build_results_json(result_list)))
+        accuracy = round(metrics.accuracy_score(y_test, clf.predict(X_test)), ACCURACY_FLOATING_POINT)
+        intermediate_results.append([dataset_name, experiment_name, classifier_config['name'], 'N/A', 'N/A', accuracy,
+                                     '{}'])
     return intermediate_results
 
 
@@ -98,8 +84,10 @@ def run_experiments(output, dataset, experiments):
     intermediate_results = run_baseline(dataset_name, X, y)
     count = 0
     for experiment_name, experiment_params in experiments.items():
-        components = experiment_params['components'] if 'components' in experiment_params else [10, '0.5d']
-        cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params else [10, 2]
+        components = experiment_params['components'] if 'components' in experiment_params \
+            else DEFAULT_NUMBER_OF_COMPONENTS
+        cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params \
+            else DEFAULT_CROSS_VALIDATION
         classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
             else CLASSIFIERS
         for experiment_config in itertools.product(classifiers_list, components, cross_validation):
@@ -149,17 +137,17 @@ def run_experiments(output, dataset, experiments):
                     df = pd.DataFrame.from_dict(results)
                     accuracies.append(metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0]))
             result_list = [dataset_name, experiment_name, classifier_config['name'], components_num, cross_validation,
-                           round(np.asarray(accuracies).mean(), 5)]
+                           round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT), str(kernels)]
             count += 1
-            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), *result_list)
-            intermediate_results.append((result_list, build_results_json(result_list, kernels)))
+            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), *result_list[:-1])
+            intermediate_results.append(result_list)
     print(ctime(), 'Finished running experiments on dataset', dataset_name)
-    write_results_to_json(dataset_name, [intermediate_result[1] for intermediate_result in intermediate_results])
     output.put(intermediate_results)
 
 
 def train_predict(X_train, X_test, y_train, classifier_config, kernel_config, components_num):
     kernel_calculation, kernel_params = get_kernel(X_train, kernel_config)
+    kernel_config['run_params'] = kernel_params
     train_kernel = stepwise_kpca(kernel_calculation, components_num)
     test_kernel = stepwise_kpca(get_kernel(X_test, kernel_config, kernel_params)[0], components_num)
     clf = get_classifier(classifier_config)
@@ -184,7 +172,7 @@ def main():
         results = [output.get() for _ in processes]
         print(ctime(), 'Finished running all experiments')
         for process_results in results:
-            temp_df = pd.DataFrame([dataframe[0] for dataframe in process_results], columns=DATAFRAME_COLUNMS)
+            temp_df = pd.DataFrame([dataframe for dataframe in process_results], columns=DATAFRAME_COLUNMS)
             temp_df = temp_df.sort_values(by='Accuracy', ascending=False)
             temp_df['Rank'] = range(1, 1 + len(temp_df))
             df = df.append(temp_df)
