@@ -36,11 +36,12 @@ def _get_kernel(x, kernel_config, euclid_distances, kernel_run_params=None):
                     else 1 / (multiplier * np.max(euclid_distances))
                 poly_coef = kernel_params['poly_coef'] if 'poly_coef' in kernel_params else [0.5, 1.5]
                 coef0 = random.uniform(poly_coef[0], poly_coef[1]) * avg_euclid_distance
-                degree = kernel_params['poly_degree'] if 'poly_degree' in kernel_params else 3
                 kernel_run_params = {
                     "poly_gamma": gamma,
                     "poly_coef0": coef0
                 }
+            degree = kernel_params['poly_degree'] if 'poly_degree' in kernel_params else 3
+            kernel_run_params['poly_degree'] = degree
             kernel_calculation = polynomial_kernel(x, gamma=kernel_run_params['poly_gamma'],
                                                    coef0=kernel_run_params['poly_coef0'], degree=degree)
         if kernel_name == 'rbf':
