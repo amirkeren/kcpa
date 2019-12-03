@@ -2,7 +2,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernels_manager import get_kernel, stepwise_kpca
 from classifiers_manager import get_classifier, CLASSIFIERS
-from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import KFold, train_test_split, cross_val_score
 from sklearn import metrics
 from time import localtime, strftime, ctime
 import pandas as pd
@@ -65,12 +65,9 @@ def run_baseline(dataset_name, X, y):
     X = X.to_numpy()
     y = y.to_numpy()
     for classifier_config in CLASSIFIERS:
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
         clf = get_classifier(classifier_config)
-        clf.fit(X_train, y_train)
-        accuracy = round(metrics.accuracy_score(y_test, clf.predict(X_test)), ACCURACY_FLOATING_POINT)
-        intermediate_results.append([dataset_name, experiment_name, classifier_config['name'], 'N/A', 'N/A', accuracy,
-                                     '{}'])
+        accuracy = round(np.mean(cross_val_score(clf, X, y, cv=10)), ACCURACY_FLOATING_POINT)
+        intermediate_results.append([dataset_name, experiment_name, classifier_config['name'], '', '', accuracy, ''])
     return intermediate_results
 
 
