@@ -8,18 +8,18 @@ CLASSIFIERS = [
     {
         "name": "decision_tree"
     },
-    {
-        "name": "nearest_neighbors"
-    },
+    # {
+    #     "name": "nearest_neighbors"
+    # },
     {
         "name": "random_forest"
     },
-    {
-        "name": "ada_boost"
-    },
-    {
-        "name": "gaussian_nb"
-    },
+    # {
+    #     "name": "ada_boost"
+    # },
+    # {
+    #     "name": "gaussian_nb"
+    # },
     {
         "name": "rotation_forest"
     }
@@ -34,7 +34,7 @@ def get_classifier(classifier_config):
     if classifier_name == 'decision_tree':
         if classifier_params:
             return DecisionTreeClassifier(random_state=0, max_depth=classifier_params['max_depth'])
-        return DecisionTreeClassifier(random_state=0)
+        return DecisionTreeClassifier(random_state=0, max_depth=2)
     if classifier_name == 'nearest_neighbors':
         if classifier_params:
             return KNeighborsClassifier(n_neighbors=classifier_params['n_neighbors'])

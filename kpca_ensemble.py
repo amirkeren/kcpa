@@ -16,8 +16,10 @@ import smtplib
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
 DATAFRAME_COLUNMS = ['Dataset', 'Experiment', 'Classifier', 'Components', 'Folds', 'Accuracy', 'Kernels']
-DEFAULT_NUMBER_OF_KERNELS = 10
 ACCURACY_FLOATING_POINT = 5
+DEFALUT_CROSS_VALIDATION_FOR_BASELINE = 10
+
+DEFAULT_NUMBER_OF_KERNELS = [10, 'best-25']
 DEFAULT_NUMBER_OF_COMPONENTS = [10, '0.5d']
 DEFAULT_CROSS_VALIDATION = [10, 2]
 
@@ -37,12 +39,22 @@ def send_email(user, pwd, recipient, subject, body):
         print('Failed to send mail')
 
 
+def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels=None):
+    key = experiment_name + '-' + classifier
+    if components:
+        key += '-' + str(components)
+    if folds:
+        key += '-' + str(folds)
+    if kernels:
+        key += '-' + str(kernels)
+    return key
+
+
 def write_results_to_csv(dataframe):
     if not exists(RESULTS_FOLDER):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
-    dataframe = dataframe[['Rank'] + DATAFRAME_COLUNMS]
-    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv', index=False)
+    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv')
 
 
 def get_total_number_of_experiments(experiments):
@@ -60,14 +72,16 @@ def get_total_number_of_experiments(experiments):
 
 
 def run_baseline(dataset_name, X, y):
-    intermediate_results = []
+    intermediate_results = {}
     experiment_name = 'baseline'
     X = X.to_numpy()
     y = y.to_numpy()
     for classifier_config in CLASSIFIERS:
         clf = get_classifier(classifier_config)
-        accuracy = round(np.mean(cross_val_score(clf, X, y, cv=10)), ACCURACY_FLOATING_POINT)
-        intermediate_results.append([dataset_name, experiment_name, classifier_config['name'], '', '', accuracy, ''])
+        accuracy = round(np.mean(cross_val_score(clf, X, y, cv=DEFALUT_CROSS_VALIDATION_FOR_BASELINE)),
+                         ACCURACY_FLOATING_POINT)
+        intermediate_results.setdefault(dataset_name, []).append((
+            build_experiment_key(experiment_name, classifier_config['name']), accuracy))
     return intermediate_results
 
 
@@ -133,11 +147,13 @@ def run_experiments(output, dataset, experiments):
                                                              components_num)
                     df = pd.DataFrame.from_dict(results)
                     accuracies.append(metrics.accuracy_score(y_test, df.mode(axis=1).iloc[:, 0]))
-            result_list = [dataset_name, experiment_name, classifier_config['name'], components_num, cross_validation,
-                           round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT), str(kernels)]
+            accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
+            intermediate_results.setdefault(dataset_name, []).append(
+                (build_experiment_key(experiment_name, classifier_config['name'], components_num,
+                                      cross_validation, kernels), accuracy))
             count += 1
-            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), *result_list[:-1])
-            intermediate_results.append(result_list)
+            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments),
+                  build_experiment_key(experiment_name, classifier_config['name'], components_num, cross_validation))
     print(ctime(), 'Finished running experiments on dataset', dataset_name)
     output.put(intermediate_results)
 
@@ -159,7 +175,6 @@ def main():
         datasets = [f for f in listdir(DATASETS_FOLDER) if isfile(join(DATASETS_FOLDER, f))]
         datasets.sort()
         output = mp.Queue()
-        df = pd.DataFrame([], columns=DATAFRAME_COLUNMS)
         processes = []
         for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
             p = mp.Process(target=run_experiments, args=(output, dataset, experiments))
@@ -168,11 +183,19 @@ def main():
             p.start()
         results = [output.get() for _ in processes]
         print(ctime(), 'Finished running all experiments')
+        data = {}
+        column_names = []
+        first_iteration_only = True
         for process_results in results:
-            temp_df = pd.DataFrame([dataframe for dataframe in process_results], columns=DATAFRAME_COLUNMS)
-            temp_df = temp_df.sort_values(by='Accuracy', ascending=False)
-            temp_df['Rank'] = range(1, 1 + len(temp_df))
-            df = df.append(temp_df)
+            for dataset_name, results in process_results.items():
+                accuracies = []
+                for result in results:
+                    if first_iteration_only:
+                        column_names.append(result[0])
+                    accuracies.append(result[1])
+                first_iteration_only = False
+                data[dataset_name] = accuracies
+        df = pd.DataFrame.from_dict(data, orient='index', columns=column_names)
         write_results_to_csv(df)
         send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', df)
 
