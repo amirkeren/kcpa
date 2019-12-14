@@ -11,6 +11,8 @@ DEFAULT_R_RANGE = [1, 3]
 DEFAULT_EXPONENT = 5
 DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
 
+np.seterr(divide='ignore', invalid='ignore')
+
 
 class Kernel:
     def __init__(self, kernel_config, components_num):
@@ -86,13 +88,15 @@ class Kernel:
         for kernel_function, kernel_instance in self.kernel_instances.items():
             temp_kernel_calculation = kernel_instance.fit_transform(x)
             if np.count_nonzero(temp_kernel_calculation) > 0:
-                temp_kernel_calculation /= np.max(np.abs(temp_kernel_calculation), axis=0)
+                temp_kernel_calculation = np.nan_to_num(temp_kernel_calculation /
+                                                        np.max(np.abs(temp_kernel_calculation), axis=0))
             if self.kernel_combine == '+':
                 kernel_calculation += temp_kernel_calculation
             elif self.kernel_combine == '*':
                 kernel_calculation *= temp_kernel_calculation
             else:
                 kernel_calculation = temp_kernel_calculation
+        kernel_calculation = np.nan_to_num(kernel_calculation / np.max(np.abs(kernel_calculation), axis=0))
         return kernel_calculation
 
     def to_string(self):

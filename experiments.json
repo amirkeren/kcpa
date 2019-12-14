@@ -1,177 +1,127 @@
 {
   "laplacian": {
-    "kernels": [
-      {
-        "name": "laplacian"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian"
+    }
   },
   "linear": {
-    "kernels": [
-      {
-        "name": "linear"
-      }
-    ]
+    "kernel": {
+      "name": "linear"
+    }
   },
   "sigmoid": {
-    "kernels": [
-      {
-        "name": "sigmoid"
-      }
-    ]
+    "kernel": {
+      "name": "sigmoid"
+    }
   },
   "polynomial": {
-    "kernels": [
-      {
-        "name": "polynomial"
-      }
-    ]
+    "kernel": {
+      "name": "polynomial"
+    }
   },
   "rbf": {
-    "kernels": [
-      {
-        "name": "rbf"
-      }
-    ]
+    "kernel": {
+      "name": "rbf"
+    }
   },
   "laplacian_add_linear": {
-    "kernels": [
-      {
-        "name": "laplacian+linear"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian+linear"
+    }
   },
   "laplacian_add_sigmoid": {
-    "kernels": [
-      {
-        "name": "laplacian+sigmoid"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian+sigmoid"
+    }
   },
   "laplacian_add_polynomial": {
-    "kernels": [
-      {
-        "name": "laplacian+polynomial"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian+polynomial"
+    }
   },
   "laplacian_add_rbf": {
-    "kernels": [
-      {
-        "name": "laplacian+rbf"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian+rbf"
+    }
   },
   "linear_add_sigmoid": {
-    "kernels": [
-      {
-        "name": "linear+sigmoid"
-      }
-    ]
+    "kernel": {
+      "name": "linear+sigmoid"
+    }
   },
   "linear_add_polynomial": {
-    "kernels": [
-      {
-        "name": "linear+polynomial"
-      }
-    ]
+    "kernel": {
+      "name": "linear+polynomial"
+    }
   },
   "linear_add_rbf": {
-    "kernels": [
-      {
-        "name": "linear+rbf"
-      }
-    ]
+    "kernel": {
+      "name": "linear+rbf"
+    }
   },
   "sigmoid_add_polynomial": {
-    "kernels": [
-      {
-        "name": "sigmoid+polynomial"
-      }
-    ]
+    "kernel": {
+      "name": "sigmoid+polynomial"
+    }
   },
   "sigmoid_add_rbf": {
-    "kernels": [
-      {
-        "name": "sigmoid+rbf"
-      }
-    ]
+    "kernel": {
+      "name": "sigmoid+rbf"
+    }
   },
   "polynomial_add_rbf": {
-    "kernels": [
-      {
-        "name": "polynomial+rbf"
-      }
-    ]
+    "kernel": {
+      "name": "polynomial+rbf"
+    }
   },
   "laplacian_mul_linear": {
-    "kernels": [
-      {
-        "name": "laplacian*linear"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian*linear"
+    }
   },
   "laplacian_mul_sigmoid": {
-    "kernels": [
-      {
-        "name": "laplacian*sigmoid"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian*sigmoid"
+    }
   },
   "laplacian_mul_polynomial": {
-    "kernels": [
-      {
-        "name": "laplacian*polynomial"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian*polynomial"
+    }
   },
   "laplacian_mul_rbf": {
-    "kernels": [
-      {
-        "name": "laplacian*rbf"
-      }
-    ]
+    "kernel": {
+      "name": "laplacian*rbf"
+    }
   },
   "linear_mul_sigmoid": {
-    "kernels": [
-      {
-        "name": "linear*sigmoid"
-      }
-    ]
+    "kernel": {
+      "name": "linear*sigmoid"
+    }
   },
   "linear_mul_polynomial": {
-    "kernels": [
-      {
-        "name": "linear*polynomial"
-      }
-    ]
+    "kernel": {
+      "name": "linear*polynomial"
+    }
   },
   "linear_mul_rbf": {
-    "kernels": [
-      {
-        "name": "linear*rbf"
-      }
-    ]
+    "kernel": {
+      "name": "linear*rbf"
+    }
   },
   "sigmoid_mul_polynomial": {
-    "kernels": [
-      {
-        "name": "sigmoid*polynomial"
-      }
-    ]
+    "kernel": {
+      "name": "sigmoid*polynomial"
+    }
   },
   "sigmoid_mul_rbf": {
-    "kernels": [
-      {
-        "name": "sigmoid*rbf"
-      }
-    ]
+    "kernel": {
+      "name": "sigmoid*rbf"
+    }
   },
   "polynomial_mul_rbf": {
-    "kernels": [
-      {
-        "name": "polynomial*rbf"
-      }
-    ]
+    "kernel": {
+      "name": "polynomial*rbf"
+    }
   }
 }
