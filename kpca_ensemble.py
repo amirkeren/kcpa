@@ -2,7 +2,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernel import Kernel
 from classifiers_manager import get_classifier, CLASSIFIERS
-from sklearn.model_selection import KFold, cross_val_score, train_test_split
+from sklearn.model_selection import cross_val_score, train_test_split, RepeatedKFold
 from sklearn import metrics
 from time import localtime, strftime, ctime
 import pandas as pd
@@ -18,8 +18,8 @@ ACCURACY_FLOATING_POINT = 5
 DEFALUT_CROSS_VALIDATION_FOR_BASELINE = 10
 KERNELS_TO_CHOOSE = 10
 DEFAULT_NUMBER_OF_KERNELS = [25]
-DEFAULT_NUMBER_OF_COMPONENTS = [4, '0.5d']
-DEFAULT_CROSS_VALIDATION = [10]  # [10, 2]
+DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
+DEFAULT_CROSS_VALIDATION = [2]  # [10, 2]
 
 
 def send_email(user, pwd, recipient, subject, body):
@@ -85,12 +85,12 @@ def run_baseline(dataset_name, X, y):
     return intermediate_results
 
 
-def choose_best_kernels(kernels, X, y, clf, components_num):
+def choose_best_kernels(kernels, X, y, clf):
     kernels_heap = []
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     for kernel in kernels:
-        embedded_train = kernel.calculate_kernel(X_train, components_num)
-        embedded_test = kernel.calculate_kernel(X_test, components_num)
+        embedded_train = kernel.calculate_kernel(X_train)
+        embedded_test = kernel.calculate_kernel(X_test)
         clf = clf.fit(embedded_train, y_train)
         kernels_heap.append((kernel, metrics.accuracy_score(y_test, clf.predict(embedded_test))))
     return [tup[0] for tup in sorted(kernels_heap, key=lambda tup: tup[1])[-KERNELS_TO_CHOOSE:]]
@@ -119,44 +119,26 @@ def run_experiments(output, dataset, experiments):
             components_num = experiment_config[1]
             folds = experiment_config[2]
             kernels_num = experiment_config[3]
-            components_num = components_num if isinstance(components_num, int) else X.shape[1] // 2
-            kernels = [Kernel(experiment_params['kernel']) for _ in itertools.repeat(None, kernels_num)]
+            components_num = components_num if isinstance(components_num, int) else round(X.shape[1] *
+                                                                                          float(components_num[:-1]))
+            kernels = [Kernel(experiment_params['kernel'], components_num) for _ in itertools.repeat(None, kernels_num)]
             accuracies = []
-            if folds == 2:  # 5x2 cross validation
-                random_states = [0, 7, 9, 23, 42]
-                # for i in range(5):
-                #     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5,
-                #                                                         random_state=random_states[i])
-                #     for j, kernel_config in enumerate(kernels):
-                #         # kernel_name = kernel_config['name'] + '_' + str(i)
-                #         kernel_calculation, kernel_params = get_kernel(X_train, kernel_config)
-                #         kernel_config['run_params'] = kernel_params
-                #         train_kernel = stepwise_kpca(kernel_calculation, components_num)
-                #         test_kernel = stepwise_kpca(get_kernel(X_test, kernel_config, kernel_params)[0], components_num)
-                #         clf = get_classifier(classifier_config)
-                #         clf = clf.fit(train_kernel, y_train)
-                #         return clf.predict(test_kernel)
-                #         # results[kernel_name] = train_predict(X_train, X_test, y_train, classifier_config, kernel_config,
-                #         #                                      components_num)
-                # results_df = pd.DataFrame.from_dict(results)
-                # accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
-            else:
-                if len(kernels) > KERNELS_TO_CHOOSE:
-                    kernels = choose_best_kernels(kernels, X, y, get_classifier(classifier_config), components_num)
-                kf = KFold(n_splits=folds)
-                for train_index, test_index in kf.split(X):
-                    results = {}
-                    X_train, X_test = X.values[train_index], X.values[test_index]
-                    y_train, y_test = y.values[train_index], y.values[test_index]
-                    for i, kernel in enumerate(kernels):
-                        _, kernel_params = kernel.get_kernel()
-                        embedded_train = kernel.calculate_kernel(X_train, components_num)
-                        embedded_test = kernel.calculate_kernel(X_test, components_num)
-                        clf = get_classifier(classifier_config)
-                        clf = clf.fit(embedded_train, y_train)
-                        results[i] = clf.predict(embedded_test)
-                    results_df = pd.DataFrame.from_dict(results)
-                    accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
+            clf = get_classifier(classifier_config)
+            if len(kernels) > KERNELS_TO_CHOOSE:
+                kernels = choose_best_kernels(kernels, X, y, clf)
+            n_repeats = 5 if folds == 2 else 1  # if folds == 2 => 5x2 cross validation
+            rkf = RepeatedKFold(n_splits=folds, n_repeats=n_repeats, random_state=0)
+            for train_index, test_index in rkf.split(X):
+                results = {}
+                X_train, X_test = X.values[train_index], X.values[test_index]
+                y_train, y_test = y.values[train_index], y.values[test_index]
+                for kernel in kernels:
+                    embedded_train = kernel.calculate_kernel(X_train)
+                    embedded_test = kernel.calculate_kernel(X_test)
+                    clf = clf.fit(embedded_train, y_train)
+                    results[kernel] = clf.predict(embedded_test)
+                results_df = pd.DataFrame.from_dict(results)
+                accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
             accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
             intermediate_results.setdefault(dataset_name, []).append(
                 (build_experiment_key(experiment_name, classifier_config['name'], components_num,
