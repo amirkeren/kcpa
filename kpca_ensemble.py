@@ -190,4 +190,4 @@ def run_statistical_analysis(results_df):
 if __name__ == '__main__':
     df = get_experiments_results()
     run_statistical_analysis(df)
-    # send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', df)
+    send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', df)
