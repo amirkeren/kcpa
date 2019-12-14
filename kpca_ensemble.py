@@ -144,7 +144,7 @@ def run_experiments(output, dataset, experiments):
                 (build_experiment_key(experiment_name, classifier_config['name'], components_num,
                                       folds, kernels_num, kernels), accuracy))
             count += 1
-            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments),
+            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
                   build_experiment_key(experiment_name, classifier_config['name'], components_num, folds, kernels_num))
     print(ctime(), 'Finished running experiments on dataset', dataset_name)
     output.put(intermediate_results)
