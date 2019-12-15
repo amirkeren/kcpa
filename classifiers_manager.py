@@ -8,18 +8,18 @@ CLASSIFIERS = [
     {
         "name": "decision_tree"
     },
-    # {
-    #     "name": "nearest_neighbors"
-    # },
+    {
+        "name": "nearest_neighbors"
+    },
     {
         "name": "random_forest"
     },
-    # {
-    #     "name": "ada_boost"
-    # },
-    # {
-    #     "name": "gaussian_nb"
-    # },
+    {
+        "name": "ada_boost"
+    },
+    {
+        "name": "gaussian_nb"
+    },
     {
         "name": "rotation_forest"
     }
