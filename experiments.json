@@ -1,9 +1,4 @@
 {
-  "laplacian": {
-    "kernel": {
-      "name": "laplacian"
-    }
-  },
   "linear": {
     "kernel": {
       "name": "linear"
@@ -22,26 +17,6 @@
   "rbf": {
     "kernel": {
       "name": "rbf"
-    }
-  },
-  "laplacian_add_linear": {
-    "kernel": {
-      "name": "laplacian+linear"
-    }
-  },
-  "laplacian_add_sigmoid": {
-    "kernel": {
-      "name": "laplacian+sigmoid"
-    }
-  },
-  "laplacian_add_polynomial": {
-    "kernel": {
-      "name": "laplacian+polynomial"
-    }
-  },
-  "laplacian_add_rbf": {
-    "kernel": {
-      "name": "laplacian+rbf"
     }
   },
   "linear_add_sigmoid": {
@@ -72,26 +47,6 @@
   "polynomial_add_rbf": {
     "kernel": {
       "name": "polynomial+rbf"
-    }
-  },
-  "laplacian_mul_linear": {
-    "kernel": {
-      "name": "laplacian*linear"
-    }
-  },
-  "laplacian_mul_sigmoid": {
-    "kernel": {
-      "name": "laplacian*sigmoid"
-    }
-  },
-  "laplacian_mul_polynomial": {
-    "kernel": {
-      "name": "laplacian*polynomial"
-    }
-  },
-  "laplacian_mul_rbf": {
-    "kernel": {
-      "name": "laplacian*rbf"
     }
   },
   "linear_mul_sigmoid": {

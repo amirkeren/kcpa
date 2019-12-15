@@ -52,7 +52,7 @@ class Kernel:
                 "coef0": coef0,
                 "degree": degree
             }
-            kernel_instance = KernelPCA(n_components=self.n_components, kernel='polynomial', gamma=gamma, coef0=coef0,
+            kernel_instance = KernelPCA(n_components=self.n_components, kernel='poly', gamma=gamma, coef0=coef0,
                                         degree=degree)
         elif kernel_name == 'rbf':
             rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
@@ -62,14 +62,6 @@ class Kernel:
                 "gamma": gamma
             }
             kernel_instance = KernelPCA(n_components=self.n_components, kernel='rbf', gamma=gamma)
-        elif kernel_name == 'laplacian':
-            exp = kernel_config['lap_exp'] if 'lap_exp' in kernel_config else DEFAULT_EXPONENT
-            gamma = kernel_config['lap_gamma'] if 'lap_gamma' in kernel_config else \
-                1 / pow(avg_random_distribution, exp)
-            kernel_inner_params = {
-                "gamma": gamma
-            }
-            kernel_instance = KernelPCA(n_components=self.n_components, kernel='laplacian', gamma=gamma)
         elif kernel_name == 'sigmoid':
             exp = kernel_config['sig_exp'] if 'sig_exp' in kernel_config else DEFAULT_EXPONENT
             gamma = kernel_config['sig_gamma'] if 'sig_gamma' in kernel_config else \
