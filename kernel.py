@@ -65,6 +65,14 @@ class Kernel:
                 "coef0": coef0
             }
             kernel_instance = KernelPCA(n_components=self.n_components, kernel='sigmoid', gamma=gamma, coef0=coef0)
+        elif kernel_name == 'rbf':
+            rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
+            r = random.uniform(rbf_r[0], rbf_r[1])
+            gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config else 1 / pow(avg_random_distribution, r)
+            kernel_inner_params = {
+                "gamma": gamma
+            }
+            kernel_instance = KernelPCA(n_components=self.n_components, kernel='rbf', gamma=gamma)
         else:
             raise NotImplementedError('Unsupported kernel')
         self.kernel_params[kernel_name] = kernel_inner_params
