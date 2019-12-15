@@ -214,5 +214,4 @@ if __name__ == '__main__':
     else:
         df = get_experiments_results()
     run_statistical_analysis(df)
-
     send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', df)
