@@ -102,7 +102,7 @@ class Kernel:
                 kernel_calculation *= temp_kernel_calculation
             else:
                 kernel_calculation = temp_kernel_calculation
-        return self._normalize_kernel(kernel_calculation)
+        return np.nan_to_num(self._normalize_kernel(kernel_calculation))
 
     def to_string(self):
         return str(self.kernel_params)
