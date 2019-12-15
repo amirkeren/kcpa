@@ -9,6 +9,7 @@ from scipy import stats
 import pandas as pd
 import numpy as np
 import multiprocessing as mp
+import sys
 import json
 import itertools
 import smtplib
@@ -18,9 +19,9 @@ RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 DEFALUT_CROSS_VALIDATION_FOR_BASELINE = 10
 KERNELS_TO_CHOOSE = 10
-DEFAULT_NUMBER_OF_KERNELS = [10, 25]
-DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
-DEFAULT_CROSS_VALIDATION = [10, 2]
+DEFAULT_NUMBER_OF_KERNELS = [10]  # [10, 25]
+DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']  # ['0.75d', '0.5d']
+DEFAULT_CROSS_VALIDATION = [10]  # [10, 2]
 
 
 def send_email(user, pwd, recipient, subject, body):
@@ -189,13 +190,29 @@ def get_experiments_results():
 
 
 def run_statistical_analysis(results_df):
-    pass
-    # t2, p2 = stats.ttest_ind(a, b)
-    # print("t = " + str(t2))
-    # print("p = " + str(p2))
+    a = results_df.iloc[:, 1]
+    b = results_df.iloc[:, 2]
+    c = results_df.iloc[:, 3]
+    t2, p2 = stats.ttest_ind(a, b)
+    print("t = " + str(t2))
+    print("p = " + str(p2))
+    stat, p = stats.f_oneway(a, b, c)
+    print('stat=%.3f, p=%.3f' % (stat, p))
+    if p > 0.05:
+        print('Probably the same distribution')
+    else:
+        print('Probably different distributions')
 
 
 if __name__ == '__main__':
-    df = get_experiments_results()
+    input_file = None
+    df = None
+    for arg in sys.argv[1:]:
+        input_file = arg
+    if input_file:
+        df = pd.read_csv('results/' + input_file)
+    else:
+        df = get_experiments_results()
     run_statistical_analysis(df)
+
     send_email('kagglemailsender', 'Amir!1@2#3$4', 'ak091283@gmail.com', 'Finished Running', df)
