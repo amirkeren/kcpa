@@ -5,6 +5,7 @@ from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import cross_val_score, train_test_split, RepeatedKFold
 from sklearn import metrics
 from time import localtime, strftime, ctime
+from scipy import stats
 import pandas as pd
 import numpy as np
 import multiprocessing as mp
@@ -33,7 +34,7 @@ def send_email(user, pwd, recipient, subject, body):
         server.sendmail(user, to, message)
         server.close()
         print('Email sent successfully')
-    except Exception as e:
+    except:
         print('Failed to send mail')
 
 
@@ -188,8 +189,10 @@ def get_experiments_results():
 
 
 def run_statistical_analysis(results_df):
-    # TODO
     pass
+    # t2, p2 = stats.ttest_ind(a, b)
+    # print("t = " + str(t2))
+    # print("p = " + str(p2))
 
 
 if __name__ == '__main__':
