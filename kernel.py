@@ -1,4 +1,5 @@
 from sklearn.decomposition import KernelPCA
+from sklearn.preprocessing import scale
 import numpy as np
 import random
 import re
@@ -10,6 +11,8 @@ DEFAULT_COEFFICIENT_RANGE = [0.5, 1.5]
 DEFAULT_R_RANGE = [1, 3]
 DEFAULT_EXPONENT = 5
 DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
+SCALE_NORMALIZATION = 'scale'
+REGULAR_NORMALIZATION = 'regular'
 
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -83,21 +86,23 @@ class Kernel:
         self.kernel_params[kernel_name] = kernel_inner_params
         self.kernel_instances[kernel_name] = kernel_instance
 
+    @staticmethod
+    def _normalize_kernel(x, normalization_method=REGULAR_NORMALIZATION):
+        if normalization_method == SCALE_NORMALIZATION:
+            return scale(x, axis=0, with_mean=True, with_std=True, copy=True)
+        return 2. * (x - np.min(x)) / np.ptp(x) - 1
+
     def calculate_kernel(self, x):
         kernel_calculation = np.zeros((x.shape[0], self.n_components))
         for kernel_function, kernel_instance in self.kernel_instances.items():
-            temp_kernel_calculation = kernel_instance.fit_transform(x)
-            if np.count_nonzero(temp_kernel_calculation) > 0:
-                temp_kernel_calculation = np.nan_to_num(temp_kernel_calculation /
-                                                        np.max(np.abs(temp_kernel_calculation), axis=0))
+            temp_kernel_calculation = self._normalize_kernel(kernel_instance.fit_transform(x))
             if self.kernel_combine == '+':
                 kernel_calculation += temp_kernel_calculation
             elif self.kernel_combine == '*':
                 kernel_calculation *= temp_kernel_calculation
             else:
                 kernel_calculation = temp_kernel_calculation
-        kernel_calculation = np.nan_to_num(kernel_calculation / np.max(np.abs(kernel_calculation), axis=0))
-        return kernel_calculation
+        return self._normalize_kernel(kernel_calculation)
 
     def to_string(self):
         return str(self.kernel_params)
