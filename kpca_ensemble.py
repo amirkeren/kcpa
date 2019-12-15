@@ -33,7 +33,7 @@ def send_email(user, pwd, recipient, subject, body):
         server.sendmail(user, to, message)
         server.close()
         print('Email sent successfully')
-    except:
+    except Exception as e:
         print('Failed to send mail')
 
 
@@ -97,57 +97,62 @@ def choose_best_kernels(kernels, X, y, clf):
 
 
 def run_experiments(output, dataset, experiments):
-    dataset_name = dataset[0]
-    print(ctime(), 'Starting to run experiments on dataset', dataset_name)
-    total_number_of_experiments = get_total_number_of_experiments(experiments)
-    df = dataset[1]
-    X = df.iloc[:, :-1]
-    y = df.iloc[:, -1]
-    intermediate_results = run_baseline(dataset_name, X, y)
-    count = 0
-    for experiment_name, experiment_params in experiments.items():
-        components = experiment_params['components'] if 'components' in experiment_params \
-            else DEFAULT_NUMBER_OF_COMPONENTS
-        cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params \
-            else DEFAULT_CROSS_VALIDATION
-        classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
-            else CLASSIFIERS
-        ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
-            else DEFAULT_NUMBER_OF_KERNELS
-        for experiment_config in itertools.product(classifiers_list, components, cross_validation, ensemble_size):
-            classifier_config = experiment_config[0]
-            components_num = experiment_config[1]
-            folds = experiment_config[2]
-            kernels_num = experiment_config[3]
-            components_num = components_num if isinstance(components_num, int) else round(X.shape[1] *
-                                                                                          float(components_num[:-1]))
-            kernels = [Kernel(experiment_params['kernel'], components_num) for _ in itertools.repeat(None, kernels_num)]
-            accuracies = []
-            clf = get_classifier(classifier_config)
-            if len(kernels) > KERNELS_TO_CHOOSE:
-                kernels = choose_best_kernels(kernels, X, y, clf)
-            n_repeats = 5 if folds == 2 else 1  # if folds == 2 => 5x2 cross validation
-            rkf = RepeatedKFold(n_splits=folds, n_repeats=n_repeats, random_state=0)
-            for train_index, test_index in rkf.split(X):
-                results = {}
-                X_train, X_test = X.values[train_index], X.values[test_index]
-                y_train, y_test = y.values[train_index], y.values[test_index]
-                for kernel in kernels:
-                    embedded_train = kernel.calculate_kernel(X_train)
-                    embedded_test = kernel.calculate_kernel(X_test)
-                    clf = clf.fit(embedded_train, y_train)
-                    results[kernel] = clf.predict(embedded_test)
-                results_df = pd.DataFrame.from_dict(results)
-                accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
-            accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
-            intermediate_results.setdefault(dataset_name, []).append(
-                (build_experiment_key(experiment_name, classifier_config['name'], components_num,
-                                      folds, kernels_num, kernels), accuracy))
-            count += 1
-            print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
-                  build_experiment_key(experiment_name, classifier_config['name'], components_num, folds, kernels_num))
-    print(ctime(), 'Finished running experiments on dataset', dataset_name)
-    output.put(intermediate_results)
+    try:
+        dataset_name = dataset[0]
+        print(ctime(), 'Starting to run experiments on dataset', dataset_name)
+        total_number_of_experiments = get_total_number_of_experiments(experiments)
+        df = dataset[1]
+        X = df.iloc[:, :-1]
+        y = df.iloc[:, -1]
+        intermediate_results = run_baseline(dataset_name, X, y)
+        count = 0
+        for experiment_name, experiment_params in experiments.items():
+            components = experiment_params['components'] if 'components' in experiment_params \
+                else DEFAULT_NUMBER_OF_COMPONENTS
+            cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params \
+                else DEFAULT_CROSS_VALIDATION
+            classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
+                else CLASSIFIERS
+            ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
+                else DEFAULT_NUMBER_OF_KERNELS
+            for experiment_config in itertools.product(classifiers_list, components, cross_validation, ensemble_size):
+                classifier_config = experiment_config[0]
+                components_num = experiment_config[1]
+                folds = experiment_config[2]
+                kernels_num = experiment_config[3]
+                components_num = components_num if isinstance(components_num, int) else \
+                    round(X.shape[1] * float(components_num[:-1]))
+                kernels = [Kernel(experiment_params['kernel'], components_num) for _ in itertools.repeat(None,
+                                                                                                         kernels_num)]
+                accuracies = []
+                clf = get_classifier(classifier_config)
+                if len(kernels) > KERNELS_TO_CHOOSE:
+                    kernels = choose_best_kernels(kernels, X, y, clf)
+                n_repeats = 5 if folds == 2 else 1  # if folds == 2 => 5x2 cross validation
+                rkf = RepeatedKFold(n_splits=folds, n_repeats=n_repeats, random_state=0)
+                for train_index, test_index in rkf.split(X):
+                    results = {}
+                    X_train, X_test = X.values[train_index], X.values[test_index]
+                    y_train, y_test = y.values[train_index], y.values[test_index]
+                    for kernel in kernels:
+                        embedded_train = kernel.calculate_kernel(X_train)
+                        embedded_test = kernel.calculate_kernel(X_test)
+                        clf = clf.fit(embedded_train, y_train)
+                        results[kernel] = clf.predict(embedded_test)
+                    results_df = pd.DataFrame.from_dict(results)
+                    accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
+                accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
+                intermediate_results.setdefault(dataset_name, []).append(
+                    (build_experiment_key(experiment_name, classifier_config['name'], components_num,
+                                          folds, kernels_num, kernels), accuracy))
+                count += 1
+                print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
+                      build_experiment_key(experiment_name, classifier_config['name'], components_num, folds,
+                                           kernels_num))
+        print(ctime(), 'Finished running experiments on dataset', dataset_name)
+        output.put(intermediate_results)
+    except Exception as e:
+        print(e)
 
 
 def get_experiments_results():
