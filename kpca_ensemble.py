@@ -193,18 +193,21 @@ def get_experiments_results():
 
 
 def run_statistical_analysis(results_df):
-    a = results_df.iloc[:, 1]
-    b = results_df.iloc[:, 2]
-    c = results_df.iloc[:, 3]
-    t2, p2 = stats.ttest_ind(a, b)
-    print("t = " + str(t2))
-    print("p = " + str(p2))
-    stat, p = stats.f_oneway(a, b, c)
-    print('stat=%.3f, p=%.3f' % (stat, p))
-    if p > 0.05:
-        print('Probably the same distribution')
-    else:
-        print('Probably different distributions')
+    description = results_df.describe().loc[['mean', 'std']]
+    description.sort_values(by='mean', axis=1, ascending=False).to_csv('results/summary.csv')
+
+    # a = results_df.iloc[:, 1]
+    # b = results_df.iloc[:, 2]
+    # c = results_df.iloc[:, 3]
+    # t2, p2 = stats.ttest_ind(a, b)
+    # print("t = " + str(t2))
+    # print("p = " + str(p2))
+    # stat, p = stats.f_oneway(a, b, c)
+    # print('stat=%.3f, p=%.3f' % (stat, p))
+    # if p > 0.05:
+    #     print('Probably the same distribution')
+    # else:
+    #     print('Probably different distributions')
 
 
 if __name__ == '__main__':
