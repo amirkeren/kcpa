@@ -105,9 +105,10 @@ def run_experiments(output, dataset, experiments):
         dataset_name = dataset[0]
         print(ctime(), 'Starting to run experiments on dataset', dataset_name)
         total_number_of_experiments = get_total_number_of_experiments(experiments)
-        df = dataset[1]
-        X = df.iloc[:, :-1]
-        y = df.iloc[:, -1]
+        dataframe = dataset[1]
+        dataframe = dataframe.fillna(dataframe.mean())
+        X = dataframe.iloc[:, :-1]
+        y = dataframe.iloc[:, -1]
         intermediate_results = run_baseline(dataset_name, X, y)
         count = 0
         for experiment_name, experiment_params in experiments.items():
