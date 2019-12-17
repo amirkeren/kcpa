@@ -1,6 +1,6 @@
 from os import listdir, makedirs
 from os.path import isfile, join, exists
-from kernel import Kernel
+from kernel import Kernel, Normalization
 from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import cross_val_score, train_test_split, RepeatedKFold
 from sklearn import metrics
@@ -21,9 +21,9 @@ RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 DEFALUT_CROSS_VALIDATION_FOR_BASELINE = 10
 KERNELS_TO_CHOOSE = 10
-DEFAULT_NUMBER_OF_KERNELS = [10]  # [10, 25]
-DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']  # ['0.75d', '0.5d']
-DEFAULT_CROSS_VALIDATION = [10]  # [10, 2]
+DEFAULT_NUMBER_OF_KERNELS = [10, 25]
+DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
+DEFAULT_CROSS_VALIDATION = [10, 2]
 
 
 def send_email(user, pwd, recipient, subject, body):
@@ -120,6 +120,8 @@ def run_experiments(output, dataset, experiments):
                 else CLASSIFIERS
             ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
                 else DEFAULT_NUMBER_OF_KERNELS
+            normalization_method = Normalization[experiment_params['normalization']] \
+                if 'normalization' in experiment_params else Normalization.STANDARD
             for experiment_config in itertools.product(classifiers_list, components, cross_validation, ensemble_size):
                 classifier_config = experiment_config[0]
                 components_num = experiment_config[1]
@@ -127,8 +129,8 @@ def run_experiments(output, dataset, experiments):
                 kernels_num = experiment_config[3]
                 components_num = components_num if isinstance(components_num, int) else \
                     round(X.shape[1] * float(components_num[:-1]))
-                kernels = [Kernel(experiment_params['kernel'], components_num) for _ in itertools.repeat(None,
-                                                                                                         kernels_num)]
+                kernels = [Kernel(experiment_params['kernel'], components_num, normalization_method) for _ in
+                           itertools.repeat(None, kernels_num)]
                 accuracies = []
                 clf = get_classifier(classifier_config)
                 if len(kernels) > KERNELS_TO_CHOOSE:
@@ -193,6 +195,7 @@ def get_experiments_results():
 
 
 def run_statistical_analysis(results_df):
+    print('Run statistical analysis on results')
     description = results_df.describe().loc[['mean', 'std']]
     description.sort_values(by='mean', axis=1, ascending=False).to_csv('results/summary.csv')
 
@@ -215,12 +218,13 @@ if __name__ == '__main__':
     df = None
     for arg in sys.argv[1:]:
         input_file = arg
-    if input_file:
+    if input_file and isfile(input_file):
+        print('Results file found')
         df = pd.read_csv('results/' + input_file)
     else:
         df = get_experiments_results()
     run_statistical_analysis(df)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
-    # send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-    #            'ak091283@gmail.com', 'Finished Running', df)
+    send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
+               'ak091283@gmail.com', 'Finished Running', df)

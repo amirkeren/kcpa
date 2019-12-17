@@ -1,8 +1,9 @@
 from sklearn.decomposition import KernelPCA
-from sklearn.preprocessing import scale
+from sklearn.preprocessing import scale, StandardScaler
 import numpy as np
 import random
 import re
+from enum import Enum
 
 DEFAULT_RANDOM_DISTRIBUTION_SIZE = 10
 DEFAULT_POLYNOMIAL_MULTIPLIER = 0.5
@@ -11,16 +12,23 @@ DEFAULT_COEFFICIENT_RANGE = [0.5, 1.5]
 DEFAULT_R_RANGE = [1, 3]
 DEFAULT_EXPONENT = 5
 DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
-SCALE_NORMALIZATION = 'scale'
-REGULAR_NORMALIZATION = 'regular'
+
+
+class Normalization(Enum):
+    STANDARD = 1
+    SCALE = 2
+    ABSOLUTE = 3
+    NEGATIVE = 4
+
 
 np.seterr(divide='ignore', invalid='ignore')
 
 
 class Kernel:
-    def __init__(self, kernel_config, components_num):
+    def __init__(self, kernel_config, components_num, normalization_method):
         self.kernel_params = {}
         self.kernel_instances = {}
+        self.normalization_method = normalization_method
         self.kernel_combine = None
         self.n_components = components_num
         self.kernel_name = kernel_config['name']
@@ -78,11 +86,15 @@ class Kernel:
         self.kernel_params[kernel_name] = kernel_inner_params
         self.kernel_instances[kernel_name] = kernel_instance
 
-    @staticmethod
-    def _normalize_kernel(x, normalization_method=REGULAR_NORMALIZATION):
-        if normalization_method == SCALE_NORMALIZATION:
+    def _normalize_kernel(self, x):
+        if self.normalization_method == Normalization.SCALE:
             return scale(x, axis=0, with_mean=True, with_std=True, copy=True)
-        return 2. * (x - np.min(x)) / np.ptp(x) - 1
+        if self.normalization_method == Normalization.NEGATIVE:
+            return 2. * (x - np.min(x)) / np.ptp(x) - 1
+        if self.normalization_method == Normalization.ABSOLUTE:
+            return x / np.max(np.abs(x), axis=0)
+        if self.normalization_method == Normalization.STANDARD:
+            return StandardScaler().fit_transform(x)
 
     def calculate_kernel(self, x):
         kernel_calculation = np.zeros((x.shape[0], self.n_components))

@@ -39,8 +39,7 @@ def get_classifier(classifier_config):
             return DecisionTreeClassifier(random_state=0, max_depth=classifier_params['max_depth'])
         return DecisionTreeClassifier(random_state=0)
     if classifier_name == 'decision_stump':
-        if classifier_params:
-            return DecisionTreeClassifier(random_state=0, max_depth=1)
+        return DecisionTreeClassifier(random_state=0, max_depth=1)
     if classifier_name == 'nearest_neighbors':
         if classifier_params:
             return KNeighborsClassifier(n_neighbors=classifier_params['n_neighbors'])
