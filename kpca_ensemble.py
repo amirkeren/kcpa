@@ -218,9 +218,13 @@ if __name__ == '__main__':
     df = None
     for arg in sys.argv[1:]:
         input_file = arg
-    if input_file and isfile(input_file):
-        print('Results file found')
-        df = pd.read_csv('results/' + input_file)
+    if input_file:
+        input_file = 'results/' + input_file
+        if isfile(input_file):
+            print('Results file found')
+            df = pd.read_csv(input_file)
+        else:
+            df = get_experiments_results()
     else:
         df = get_experiments_results()
     run_statistical_analysis(df)
