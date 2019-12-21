@@ -15,7 +15,7 @@ import itertools
 import smtplib
 import configparser
 
-SEND_DETAILED_EMAIL = False
+SEND_DETAILED_EMAIL = True
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
@@ -26,7 +26,7 @@ DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
 DEFAULT_CROSS_VALIDATION = [10, 2]
 
 
-def send_email(user, pwd, recipient, subject, body=''):
+def send_email(user, pwd, recipient, subject, body):
     to = recipient if type(recipient) is list else [recipient]
     message = """From: %s\nTo: %s\nSubject: %s\n\n%s""" % (user, ", ".join(to), subject, body)
     try:
@@ -221,22 +221,25 @@ def summarize_results(results_df):
 def run_statistical_analysis(results_df):
     print('Run statistical analysis on results')
     summarized_results = summarize_results(results_df)
+    results_string = ''
     for key, value in summarized_results.items():
         baseline = value['baseline_results']
         experiment = value['best_experiment']['experiment_results']
         baseline_mean = value['baseline_accuracy']
         experiment_mean = value['best_experiment']['accuracy']
-        print(key)
-        print('Best experiment:', value['best_experiment']['experiment'])
+        results_string += key + '\n'
+        results_string += 'Best experiment: ' + str(value['best_experiment']['experiment']) + '\n'
         if baseline_mean > experiment_mean:
-            print('Baseline wins:', baseline_mean, '>', experiment_mean)
+            results_string += 'Baseline wins: ' + str(baseline_mean) + ' > ' + str(experiment_mean) + '\n'
         else:
-            print('Experiment wins:', experiment_mean, '>', baseline_mean)
+            results_string += 'Experiment wins: ' + str(experiment_mean) + ' > ' + str(baseline_mean) + '\n'
         t, p = stats.ttest_ind(baseline, experiment)
-        print('T-Test: t =', round(t, ACCURACY_FLOATING_POINT), 'p =', round(p, ACCURACY_FLOATING_POINT))
+        results_string += 'T-Test: t = ' + str(round(t, ACCURACY_FLOATING_POINT)) + 'p = ' + \
+                          str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
         stat, p = stats.wilcoxon(baseline, experiment)
-        print('Wilcoxon: s =', stat, 'p =', round(p, ACCURACY_FLOATING_POINT))
-        print()
+        results_string += 'Wilcoxon: s = ' + str(stat) + 'p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
+        results_string += '\n'
+    return results_string
 
 
 if __name__ == '__main__':
@@ -255,10 +258,10 @@ if __name__ == '__main__':
             df = get_experiments_results()
     else:
         df = get_experiments_results()
-    run_statistical_analysis(df)
+    results = run_statistical_analysis(df)
+    print(results)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
     if send_summary_email:
-        body = df if SEND_DETAILED_EMAIL else ''
         send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-                   'ak091283@gmail.com', 'Finished Running')
+                   'ak091283@gmail.com', 'Finished Running', results if SEND_DETAILED_EMAIL else '')
