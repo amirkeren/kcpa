@@ -15,7 +15,7 @@ import itertools
 import smtplib
 import configparser
 
-
+SEND_DETAILED_EMAIL = False
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
@@ -26,7 +26,7 @@ DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
 DEFAULT_CROSS_VALIDATION = [10, 2]
 
 
-def send_email(user, pwd, recipient, subject, body):
+def send_email(user, pwd, recipient, subject, body=''):
     to = recipient if type(recipient) is list else [recipient]
     message = """From: %s\nTo: %s\nSubject: %s\n\n%s""" % (user, ", ".join(to), subject, body)
     try:
@@ -194,31 +194,59 @@ def get_experiments_results():
         return df
 
 
+def summarize_results(results_df):
+    results = {}
+    for i in range(1, len(CLASSIFIERS) + 1):
+        results[results_df.columns[i].split('-')[1]] = {
+            "baseline_accuracy": round(results_df.iloc[:, i].mean(), ACCURACY_FLOATING_POINT),
+            "baseline_results": results_df.iloc[:, i],
+            "experiments_accuracy": []
+        }
+    for i in range(len(CLASSIFIERS) + 1, len(results_df.columns)):
+        results[results_df.columns[i].split('-')[1]]['experiments_accuracy'].append({
+            "experiment": results_df.columns[i],
+            "experiment_results": results_df.iloc[:, i],
+            "accuracy": round(results_df.iloc[:, i].mean(), ACCURACY_FLOATING_POINT)
+        })
+    for key, value in results.items():
+        best_experiment = {'accuracy': -1}
+        for experiment in value['experiments_accuracy']:
+            if experiment['accuracy'] > best_experiment['accuracy']:
+                best_experiment = experiment
+        results[key]['best_experiment'] = best_experiment
+        del results[key]['experiments_accuracy']
+    return results
+
+
 def run_statistical_analysis(results_df):
     print('Run statistical analysis on results')
-    description = results_df.describe().loc[['mean', 'std']]
-    description.sort_values(by='mean', axis=1, ascending=False).to_csv('results/summary.csv')
-
-    # a = results_df.iloc[:, 1]
-    # b = results_df.iloc[:, 2]
-    # c = results_df.iloc[:, 3]
-    # t2, p2 = stats.ttest_ind(a, b)
-    # print("t = " + str(t2))
-    # print("p = " + str(p2))
-    # stat, p = stats.f_oneway(a, b, c)
-    # print('stat=%.3f, p=%.3f' % (stat, p))
-    # if p > 0.05:
-    #     print('Probably the same distribution')
-    # else:
-    #     print('Probably different distributions')
+    summarized_results = summarize_results(results_df)
+    for key, value in summarized_results.items():
+        baseline = value['baseline_results']
+        experiment = value['best_experiment']['experiment_results']
+        baseline_mean = value['baseline_accuracy']
+        experiment_mean = value['best_experiment']['accuracy']
+        print(key)
+        print('Best experiment:', value['best_experiment']['experiment'])
+        if baseline_mean > experiment_mean:
+            print('Baseline wins:', baseline_mean, '>', experiment_mean)
+        else:
+            print('Experiment wins:', experiment_mean, '>', baseline_mean)
+        t, p = stats.ttest_ind(baseline, experiment)
+        print('T-Test: t =', round(t, ACCURACY_FLOATING_POINT), 'p =', round(p, ACCURACY_FLOATING_POINT))
+        stat, p = stats.wilcoxon(baseline, experiment)
+        print('Wilcoxon: s =', stat, 'p =', round(p, ACCURACY_FLOATING_POINT))
+        print()
 
 
 if __name__ == '__main__':
     input_file = None
     df = None
+    send_summary_email = True
     for arg in sys.argv[1:]:
         input_file = arg
     if input_file:
+        send_summary_email = False
         input_file = 'results/' + input_file
         if isfile(input_file):
             print('Results file found')
@@ -230,5 +258,7 @@ if __name__ == '__main__':
     run_statistical_analysis(df)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
-    send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-               'ak091283@gmail.com', 'Finished Running', df)
+    if send_summary_email:
+        body = df if SEND_DETAILED_EMAIL else ''
+        send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
+                   'ak091283@gmail.com', 'Finished Running')
