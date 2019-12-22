@@ -21,9 +21,12 @@ RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 DEFALUT_CROSS_VALIDATION_FOR_BASELINE = 10
 KERNELS_TO_CHOOSE = 10
+
 DEFAULT_NUMBER_OF_KERNELS = [10, 25]
-DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
+DEFAULT_NUMBER_OF_COMPONENTS = ['0.9d', '0.75d', '0.5d']
 DEFAULT_CROSS_VALIDATION = [10, 2]
+DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD, Normalization.ABSOLUTE, Normalization.NEGATIVE,
+                                 Normalization.SCALE]
 
 
 def send_email(user, pwd, recipient, subject, body):
@@ -41,7 +44,8 @@ def send_email(user, pwd, recipient, subject, body):
         print('Failed to send mail')
 
 
-def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, kernels=None):
+def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, normalization=None,
+                         kernels=None):
     key = experiment_name + '-' + classifier
     if components:
         key += '-' + str(components)
@@ -49,6 +53,8 @@ def build_experiment_key(experiment_name, classifier, components=None, folds=Non
         key += '-' + str(folds)
     if kernels_num:
         key += '-' + str(kernels_num)
+    if normalization:
+        key += '-' + str(normalization)
     if kernels:
         key += '-[' + (','.join([kernel.to_string() for kernel in kernels])) + ']'
     return key
@@ -72,7 +78,9 @@ def get_total_number_of_experiments(experiments):
             else CLASSIFIERS
         ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
             else DEFAULT_NUMBER_OF_KERNELS
-        for _ in itertools.product(classifiers_list, components, cross_validation, ensemble_size):
+        normalization_method = Normalization[experiment_params['normalization']] \
+            if 'normalization' in experiment_params else DEFAULT_NORMALIZATION_METHODS
+        for _ in itertools.product(classifiers_list, components, cross_validation, ensemble_size, normalization_method):
             count += 1
     return count
 
@@ -121,15 +129,17 @@ def run_experiments(output, dataset, experiments):
             ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
                 else DEFAULT_NUMBER_OF_KERNELS
             normalization_method = Normalization[experiment_params['normalization']] \
-                if 'normalization' in experiment_params else Normalization.STANDARD
-            for experiment_config in itertools.product(classifiers_list, components, cross_validation, ensemble_size):
+                if 'normalization' in experiment_params else DEFAULT_NORMALIZATION_METHODS
+            for experiment_config in itertools.product(classifiers_list, components, cross_validation, ensemble_size,
+                                                       normalization_method):
                 classifier_config = experiment_config[0]
                 components_num = experiment_config[1]
                 folds = experiment_config[2]
                 kernels_num = experiment_config[3]
+                normalization = experiment_config[4]
                 components_num = components_num if isinstance(components_num, int) else \
                     round(X.shape[1] * float(components_num[:-1]))
-                kernels = [Kernel(experiment_params['kernel'], components_num, normalization_method) for _ in
+                kernels = [Kernel(experiment_params['kernel'], components_num, normalization) for _ in
                            itertools.repeat(None, kernels_num)]
                 accuracies = []
                 clf = get_classifier(classifier_config)
@@ -151,11 +161,11 @@ def run_experiments(output, dataset, experiments):
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_num,
-                                          folds, kernels_num, kernels), accuracy))
+                                          folds, kernels_num, normalization, kernels), accuracy))
                 count += 1
                 print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
                       build_experiment_key(experiment_name, classifier_config['name'], components_num, folds,
-                                           kernels_num))
+                                           kernels_num, normalization))
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
         output.put(intermediate_results)
     except Exception as e:
@@ -195,27 +205,27 @@ def get_experiments_results():
 
 
 def summarize_results(results_df):
-    results = {}
+    summary_results = {}
     for i in range(1, len(CLASSIFIERS) + 1):
-        results[results_df.columns[i].split('-')[1]] = {
+        summary_results[results_df.columns[i].split('-')[1]] = {
             "baseline_accuracy": round(results_df.iloc[:, i].mean(), ACCURACY_FLOATING_POINT),
             "baseline_results": results_df.iloc[:, i],
             "experiments_accuracy": []
         }
     for i in range(len(CLASSIFIERS) + 1, len(results_df.columns)):
-        results[results_df.columns[i].split('-')[1]]['experiments_accuracy'].append({
+        summary_results[results_df.columns[i].split('-')[1]]['experiments_accuracy'].append({
             "experiment": results_df.columns[i],
             "experiment_results": results_df.iloc[:, i],
             "accuracy": round(results_df.iloc[:, i].mean(), ACCURACY_FLOATING_POINT)
         })
-    for key, value in results.items():
+    for key, value in summary_results.items():
         best_experiment = {'accuracy': -1}
         for experiment in value['experiments_accuracy']:
             if experiment['accuracy'] > best_experiment['accuracy']:
                 best_experiment = experiment
-        results[key]['best_experiment'] = best_experiment
-        del results[key]['experiments_accuracy']
-    return results
+        summary_results[key]['best_experiment'] = best_experiment
+        del summary_results[key]['experiments_accuracy']
+    return summary_results
 
 
 def run_statistical_analysis(results_df):
