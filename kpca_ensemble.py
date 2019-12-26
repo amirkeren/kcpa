@@ -1,5 +1,12 @@
+from email import encoders
+from email.mime import text
+from email.mime.application import MIMEApplication
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import COMMASPACE, formatdate
 from os import listdir, makedirs
-from os.path import isfile, join, exists
+from os.path import isfile, join, exists, basename
 from kernel import Kernel, Normalization
 from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import cross_val_score, train_test_split, RepeatedKFold
@@ -29,19 +36,27 @@ DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD, Normalization.ABSOLUTE,
                                  Normalization.SCALE]
 
 
-def send_email(user, pwd, recipient, subject, body):
+def send_email(user, pwd, recipient, subject, body, file):
+    print('Sending summary email')
     to = recipient if type(recipient) is list else [recipient]
-    message = """From: %s\nTo: %s\nSubject: %s\n\n%s""" % (user, ", ".join(to), subject, body)
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.ehlo()
-        server.starttls()
-        server.login(user, pwd)
-        server.sendmail(user, to, message)
-        server.close()
-        print('Email sent successfully')
-    except:
-        print('Failed to send mail')
+    msg = MIMEMultipart()
+    msg['From'] = user
+    msg['To'] = COMMASPACE.join(to)
+    msg['Date'] = formatdate(localtime=True)
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+    attachment = open(file, "rb")
+    part = MIMEBase('application', 'octet-stream')
+    part.set_payload(attachment.read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition', "attachment; filename= %s" % file)
+    msg.attach(part)
+    server = smtplib.SMTP('smtp.gmail.com', 587)
+    server.starttls()
+    server.login(user, pwd)
+    server.sendmail(user, to, msg.as_string())
+    server.quit()
+    print('Summary email sent')
 
 
 def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, normalization=None,
@@ -64,7 +79,9 @@ def write_results_to_csv(dataframe):
     if not exists(RESULTS_FOLDER):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
-    dataframe.to_csv(RESULTS_FOLDER + '/results-' + current_time + '.csv')
+    filename = RESULTS_FOLDER + '/results-' + current_time + '.csv'
+    dataframe.to_csv(filename)
+    return filename
 
 
 def get_total_number_of_experiments(experiments):
@@ -199,9 +216,8 @@ def get_experiments_results():
                     accuracies.append(result[1])
                 first_iteration_only = False
                 data[dataset_name] = accuracies
-        df = pd.DataFrame.from_dict(data, orient='index', columns=column_names)
-        write_results_to_csv(df)
-        return df
+        result_df = pd.DataFrame.from_dict(data, orient='index', columns=column_names)
+        return result_df, write_results_to_csv(df)
 
 
 def summarize_results(results_df):
@@ -265,13 +281,14 @@ if __name__ == '__main__':
             print('Results file found')
             df = pd.read_csv(input_file)
         else:
-            df = get_experiments_results()
+            print('Results file', input_file, 'not found')
+            df, input_file = get_experiments_results()
     else:
-        df = get_experiments_results()
-    results = run_statistical_analysis(df)
-    print(results)
+        df, input_file = get_experiments_results()
+    stat_results = run_statistical_analysis(df)
+    print(stat_results)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
-    if send_summary_email:
-        send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-                   'ak091283@gmail.com', 'Finished Running', results if SEND_DETAILED_EMAIL else '')
+    # if send_summary_email:
+    send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
+               'ak091283@gmail.com', 'Finished Running', stat_results if SEND_DETAILED_EMAIL else '', input_file)
