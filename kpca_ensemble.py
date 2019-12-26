@@ -238,11 +238,11 @@ def run_statistical_analysis(results_df):
         baseline_mean = value['baseline_accuracy']
         experiment_mean = value['best_experiment']['accuracy']
         results_string += key + '\n'
-        results_string += 'Best experiment: ' + str(value['best_experiment']['experiment']) + '\n'
         if baseline_mean > experiment_mean:
             results_string += 'Baseline wins: ' + str(baseline_mean) + ' > ' + str(experiment_mean) + '\n'
         else:
             results_string += 'Experiment wins: ' + str(experiment_mean) + ' > ' + str(baseline_mean) + '\n'
+        results_string += 'Best experiment: ' + str(value['best_experiment']['experiment']) + '\n'
         t, p = stats.ttest_ind(baseline, experiment)
         results_string += 'T-Test: t = ' + str(round(t, ACCURACY_FLOATING_POINT)) + 'p = ' + \
                           str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
