@@ -289,6 +289,6 @@ if __name__ == '__main__':
     print(stat_results)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
-    # if send_summary_email:
-    send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-               'ak091283@gmail.com', 'Finished Running', stat_results if SEND_DETAILED_EMAIL else '', input_file)
+    if send_summary_email:
+        send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
+                   'ak091283@gmail.com', 'Finished Running', stat_results if SEND_DETAILED_EMAIL else '', input_file)
