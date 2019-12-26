@@ -260,10 +260,10 @@ def run_statistical_analysis(results_df):
             results_string += 'Experiment wins: ' + str(experiment_mean) + ' > ' + str(baseline_mean) + '\n'
         results_string += 'Best experiment: ' + str(value['best_experiment']['experiment']) + '\n'
         t, p = stats.ttest_ind(baseline, experiment)
-        results_string += 'T-Test: t = ' + str(round(t, ACCURACY_FLOATING_POINT)) + 'p = ' + \
+        results_string += 'T-Test: t = ' + str(round(t, ACCURACY_FLOATING_POINT)) + ', p = ' + \
                           str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
         stat, p = stats.wilcoxon(baseline, experiment)
-        results_string += 'Wilcoxon: s = ' + str(stat) + 'p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
+        results_string += 'Wilcoxon: s = ' + str(stat) + ', p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
         results_string += '\n'
     return results_string
 
@@ -289,6 +289,6 @@ if __name__ == '__main__':
     print(stat_results)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
-    if send_summary_email:
-        send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-                   'ak091283@gmail.com', 'Finished Running', stat_results if SEND_DETAILED_EMAIL else '', input_file)
+    # if send_summary_email:
+    send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
+               'ak091283@gmail.com', 'Finished Running', stat_results if SEND_DETAILED_EMAIL else '', input_file)
