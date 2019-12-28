@@ -122,7 +122,8 @@ def run_experiments(output, dataset, experiments):
         X = dataframe.iloc[:, :-1]
         y = dataframe.iloc[:, -1]
         splits = StratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS).split(X, y)
-        intermediate_results = run_baseline(dataset_name, X, y, splits)
+        splits, splits_copy = itertools.tee(splits)
+        intermediate_results = run_baseline(dataset_name, X, y, splits_copy)
         count = 0
         for experiment_name, experiment_params in experiments.items():
             for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
@@ -190,7 +191,7 @@ def get_experiments_results():
                 first_iteration_only = False
                 data[dataset_name] = accuracies
         result_df = pd.DataFrame.from_dict(data, orient='index', columns=column_names)
-        return result_df, write_results_to_csv(df)
+        return result_df, write_results_to_csv(result_df)
 
 
 def summarize_results(results_df):
