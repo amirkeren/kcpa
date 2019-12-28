@@ -7,7 +7,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernel import Kernel, Normalization
 from classifiers_manager import get_classifier, CLASSIFIERS
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
 from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
@@ -25,7 +25,7 @@ DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
-DEFAULT_NUMBER_OF_FOLDS = 10
+DEFAULT_NUMBER_OF_FOLDS = 2  # 10
 DEFAULT_NUMBER_OF_KERNELS = [11]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
 DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD, Normalization.ABSOLUTE, Normalization.NEGATIVE,
@@ -121,7 +121,8 @@ def run_experiments(output, dataset, experiments):
         dataframe = dataframe.fillna(dataframe.mean())
         X = dataframe.iloc[:, :-1]
         y = dataframe.iloc[:, -1]
-        splits = StratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS).split(X, y)
+        splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
+                                         n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1, random_state=0).split(X, y)
         splits, splits_copy = itertools.tee(splits)
         intermediate_results = run_baseline(dataset_name, X, y, splits_copy)
         count = 0
