@@ -3,6 +3,7 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
+from enum import Enum
 from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernel import Kernel, Normalization
@@ -19,6 +20,13 @@ import json
 import itertools
 import smtplib
 import configparser
+import math
+
+
+class CandidationMethod(Enum):
+    BEST = 1
+    MIXED = 2
+
 
 SEND_DETAILED_EMAIL = True
 DATASETS_FOLDER = 'datasets'
@@ -26,7 +34,8 @@ RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
 DEFAULT_NUMBER_OF_FOLDS = 2  # 10
-DEFAULT_NUMBER_OF_KERNELS = [11]
+DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST  # CandidationMethod.Mixed
+DEFAULT_NUMBER_OF_KERNELS = [11, 25]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
 DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD, Normalization.ABSOLUTE, Normalization.NEGATIVE,
                                  Normalization.SCALE]
@@ -56,7 +65,7 @@ def send_email(user, pwd, recipient, subject, body, file):
 
 
 def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, normalization=None,
-                         kernels=None):
+                         candidation_method=None, kernels=None):
     key = experiment_name + '-' + classifier
     if components:
         key += '-' + str(components)
@@ -66,6 +75,8 @@ def build_experiment_key(experiment_name, classifier, components=None, folds=Non
         key += '-' + str(kernels_num)
     if normalization:
         key += '-' + str(normalization)
+    if candidation_method:
+        key += '-' + str(candidation_method)
     if kernels:
         key += '-[' + (','.join([kernel.to_string() for kernel in kernels])) + ']'
     return key
@@ -112,6 +123,33 @@ def run_baseline(dataset_name, X, y, splits):
     return intermediate_results
 
 
+def evaluate_all_kernels(kernels, X, y, classifier_config, splits):
+    kernels_heap = []
+    for kernel in kernels:
+        accuracies = []
+        splits, splits_copy = itertools.tee(splits)
+        for train_index, test_index in splits_copy:
+            X_train, X_test = X.values[train_index], X.values[test_index]
+            y_train, y_test = y.values[train_index], y.values[test_index]
+            embedded_train = kernel.calculate_kernel(X_train)
+            embedded_test = kernel.calculate_kernel(X_test)
+            clf = get_classifier(classifier_config)
+            clf.fit(embedded_train, y_train)
+            accuracies.append(metrics.accuracy_score(y_test, clf.predict(embedded_test)))
+        kernels_heap.append((kernel, round(np.mean(accuracies), ACCURACY_FLOATING_POINT)))
+    return sorted(kernels_heap, key=lambda tup: tup[1])
+
+
+def choose_best_kernels(kernels_and_evaluations, method):
+    if method == CandidationMethod.BEST:
+        return [tup[0] for tup in kernels_and_evaluations[-KERNELS_TO_CHOOSE:]]
+    if method == CandidationMethod.MIXED:
+        top = math.ceil(KERNELS_TO_CHOOSE / 2)
+        rest = KERNELS_TO_CHOOSE - top
+        return [tup[0] for tup in kernels_and_evaluations[rest:]].extend(
+            [tup[0] for tup in kernels_and_evaluations[-top:]])
+
+
 def run_experiments(output, dataset, experiments):
     try:
         dataset_name = dataset[0]
@@ -136,8 +174,11 @@ def run_experiments(output, dataset, experiments):
                     round(X.shape[1] * float(components_num[:-1]))
                 kernels = [Kernel(experiment_params['kernel'], components_num, normalization) for _ in
                            itertools.repeat(None, kernels_num)]
-                accuracies = []
                 splits, splits_copy = itertools.tee(splits)
+                if len(kernels) > KERNELS_TO_CHOOSE:
+                    kernels = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
+                                                  DEFAULT_CANDIDATION_METHOD)
+                accuracies = []
                 for train_index, test_index in splits_copy:
                     results = {}
                     X_train, X_test = X.values[train_index], X.values[test_index]
@@ -153,11 +194,13 @@ def run_experiments(output, dataset, experiments):
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_num,
-                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization, kernels), accuracy))
+                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization,
+                                          DEFAULT_CANDIDATION_METHOD, kernels), accuracy))
                 count += 1
                 print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
                       build_experiment_key(experiment_name, classifier_config['name'], components_num,
-                                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization))
+                                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization,
+                                           DEFAULT_CANDIDATION_METHOD))
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
         output.put(intermediate_results)
     except Exception as e:
