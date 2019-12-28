@@ -1,15 +1,13 @@
 from email import encoders
-from email.mime import text
-from email.mime.application import MIMEApplication
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from os import listdir, makedirs
-from os.path import isfile, join, exists, basename
+from os.path import isfile, join, exists
 from kernel import Kernel, Normalization
 from classifiers_manager import get_classifier, CLASSIFIERS
-from sklearn.model_selection import cross_val_score, train_test_split, RepeatedKFold
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
@@ -26,12 +24,10 @@ SEND_DETAILED_EMAIL = True
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
-DEFALUT_CROSS_VALIDATION_FOR_BASELINE = 10
-KERNELS_TO_CHOOSE = 10
-
-DEFAULT_NUMBER_OF_KERNELS = [10, 25]
-DEFAULT_NUMBER_OF_COMPONENTS = ['0.9d', '0.75d', '0.5d']
-DEFAULT_CROSS_VALIDATION = [10, 2]
+KERNELS_TO_CHOOSE = 11
+DEFAULT_NUMBER_OF_FOLDS = 10
+DEFAULT_NUMBER_OF_KERNELS = [11]
+DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
 DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD, Normalization.ABSOLUTE, Normalization.NEGATIVE,
                                  Normalization.SCALE]
 
@@ -84,45 +80,36 @@ def write_results_to_csv(dataframe):
     return filename
 
 
+def get_experiment_parameters(experiment_params):
+    classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
+        else CLASSIFIERS
+    components = experiment_params['components'] if 'components' in experiment_params \
+        else DEFAULT_NUMBER_OF_COMPONENTS
+    ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
+        else DEFAULT_NUMBER_OF_KERNELS
+    normalization_method = Normalization[experiment_params['normalization']] \
+        if 'normalization' in experiment_params else DEFAULT_NORMALIZATION_METHODS
+    return classifiers_list, components, ensemble_size, normalization_method
+
+
 def get_total_number_of_experiments(experiments):
     count = 0
-    for experiment_name, experiment_params in experiments.items():
-        components = experiment_params['components'] if 'components' in experiment_params \
-            else DEFAULT_NUMBER_OF_COMPONENTS
-        cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params \
-            else DEFAULT_CROSS_VALIDATION
-        classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
-            else CLASSIFIERS
-        ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
-            else DEFAULT_NUMBER_OF_KERNELS
-        normalization_method = Normalization[experiment_params['normalization']] \
-            if 'normalization' in experiment_params else DEFAULT_NORMALIZATION_METHODS
-        for _ in itertools.product(classifiers_list, components, cross_validation, ensemble_size, normalization_method):
+    for _, experiment_params in experiments.items():
+        for _ in itertools.product(*get_experiment_parameters(experiment_params)):
             count += 1
     return count
 
 
-def run_baseline(dataset_name, X, y):
+def run_baseline(dataset_name, X, y, splits):
     intermediate_results = {}
     experiment_name = 'baseline'
     for classifier_config in CLASSIFIERS:
+        splits, splits_copy = itertools.tee(splits)
         clf = get_classifier(classifier_config)
-        accuracy = round(np.mean(cross_val_score(clf, X, y, cv=DEFALUT_CROSS_VALIDATION_FOR_BASELINE)),
-                         ACCURACY_FLOATING_POINT)
+        accuracy = round(np.mean(cross_val_score(clf, X, y, cv=splits_copy)), ACCURACY_FLOATING_POINT)
         intermediate_results.setdefault(dataset_name, []).append((
             build_experiment_key(experiment_name, classifier_config['name']), accuracy))
     return intermediate_results
-
-
-def choose_best_kernels(kernels, X, y, clf):
-    kernels_heap = []
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-    for kernel in kernels:
-        embedded_train = kernel.calculate_kernel(X_train)
-        embedded_test = kernel.calculate_kernel(X_test)
-        clf = clf.fit(embedded_train, y_train)
-        kernels_heap.append((kernel, metrics.accuracy_score(y_test, clf.predict(embedded_test))))
-    return [tup[0] for tup in sorted(kernels_heap, key=lambda tup: tup[1])[-KERNELS_TO_CHOOSE:]]
 
 
 def run_experiments(output, dataset, experiments):
@@ -134,55 +121,41 @@ def run_experiments(output, dataset, experiments):
         dataframe = dataframe.fillna(dataframe.mean())
         X = dataframe.iloc[:, :-1]
         y = dataframe.iloc[:, -1]
-        intermediate_results = run_baseline(dataset_name, X, y)
+        splits = StratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS).split(X, y)
+        intermediate_results = run_baseline(dataset_name, X, y, splits)
         count = 0
         for experiment_name, experiment_params in experiments.items():
-            components = experiment_params['components'] if 'components' in experiment_params \
-                else DEFAULT_NUMBER_OF_COMPONENTS
-            cross_validation = experiment_params['cross_validation'] if 'cross_validation' in experiment_params \
-                else DEFAULT_CROSS_VALIDATION
-            classifiers_list = experiment_params['classifiers'] if 'classifiers' in experiment_params \
-                else CLASSIFIERS
-            ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
-                else DEFAULT_NUMBER_OF_KERNELS
-            normalization_method = Normalization[experiment_params['normalization']] \
-                if 'normalization' in experiment_params else DEFAULT_NORMALIZATION_METHODS
-            for experiment_config in itertools.product(classifiers_list, components, cross_validation, ensemble_size,
-                                                       normalization_method):
+            for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
                 classifier_config = experiment_config[0]
                 components_num = experiment_config[1]
-                folds = experiment_config[2]
-                kernels_num = experiment_config[3]
-                normalization = experiment_config[4]
+                kernels_num = experiment_config[2]
+                normalization = experiment_config[3]
                 components_num = components_num if isinstance(components_num, int) else \
                     round(X.shape[1] * float(components_num[:-1]))
                 kernels = [Kernel(experiment_params['kernel'], components_num, normalization) for _ in
                            itertools.repeat(None, kernels_num)]
                 accuracies = []
-                clf = get_classifier(classifier_config)
-                if len(kernels) > KERNELS_TO_CHOOSE:
-                    kernels = choose_best_kernels(kernels, X, y, clf)
-                n_repeats = 5 if folds == 2 else 1  # if folds == 2 => 5x2 cross validation
-                rkf = RepeatedKFold(n_splits=folds, n_repeats=n_repeats, random_state=0)
-                for train_index, test_index in rkf.split(X):
+                splits, splits_copy = itertools.tee(splits)
+                for train_index, test_index in splits_copy:
                     results = {}
                     X_train, X_test = X.values[train_index], X.values[test_index]
                     y_train, y_test = y.values[train_index], y.values[test_index]
                     for kernel in kernels:
                         embedded_train = kernel.calculate_kernel(X_train)
                         embedded_test = kernel.calculate_kernel(X_test)
-                        clf = clf.fit(embedded_train, y_train)
+                        clf = get_classifier(classifier_config)
+                        clf.fit(embedded_train, y_train)
                         results[kernel] = clf.predict(embedded_test)
                     results_df = pd.DataFrame.from_dict(results)
                     accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_num,
-                                          folds, kernels_num, normalization, kernels), accuracy))
+                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization, kernels), accuracy))
                 count += 1
                 print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
-                      build_experiment_key(experiment_name, classifier_config['name'], components_num, folds,
-                                           kernels_num, normalization))
+                      build_experiment_key(experiment_name, classifier_config['name'], components_num,
+                                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization))
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
         output.put(intermediate_results)
     except Exception as e:
@@ -281,7 +254,7 @@ if __name__ == '__main__':
             print('Results file found')
             df = pd.read_csv(input_file)
         else:
-            print('Results file', input_file, 'not found')
+            print('Results file', input_file.split('/')[1], 'not found')
             df, input_file = get_experiments_results()
     else:
         df, input_file = get_experiments_results()
