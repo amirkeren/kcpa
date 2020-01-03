@@ -28,8 +28,10 @@ class CandidationMethod(Enum):
     MIXED = 2
 
 
+RUN_ON_LARGE_DATASETS = False
 SEND_EMAIL = False
 DATASETS_FOLDER = 'datasets'
+LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
@@ -151,7 +153,7 @@ def choose_best_kernels(kernels_and_evaluations, method):
 
 def run_experiments(output, dataset, experiments):
     try:
-        dataset_name = dataset[0]
+        dataset_name = dataset[0].split('\\')[1]
         print(ctime(), 'Starting to run experiments on dataset', dataset_name)
         total_number_of_experiments = get_total_number_of_experiments(experiments)
         dataframe = dataset[1]
@@ -210,11 +212,13 @@ def get_experiments_results():
     with open('experiments.json') as json_data_file:
         print(ctime(), 'Starting to run experiments')
         experiments = json.load(json_data_file)
-        datasets = [f for f in listdir(DATASETS_FOLDER) if isfile(join(DATASETS_FOLDER, f))]
-        datasets.sort()
+        datasets = [DATASETS_FOLDER + '\\' + f for f in listdir(DATASETS_FOLDER) if isfile(join(DATASETS_FOLDER, f))]
+        if RUN_ON_LARGE_DATASETS:
+            datasets.extend([LARGE_DATASETS_FOLDER + '\\' + f for f in listdir(LARGE_DATASETS_FOLDER)
+                             if isfile(join(LARGE_DATASETS_FOLDER, f))])
         output = mp.Queue()
         processes = []
-        for dataset in [(dataset, pd.read_csv(join(DATASETS_FOLDER, dataset), header=None)) for dataset in datasets]:
+        for dataset in [(dataset, pd.read_csv(dataset, header=None)) for dataset in datasets]:
             p = mp.Process(target=run_experiments, args=(output, dataset, experiments))
             processes.append(p)
         for p in processes:
