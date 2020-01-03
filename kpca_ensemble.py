@@ -28,17 +28,16 @@ class CandidationMethod(Enum):
     MIXED = 2
 
 
-SEND_DETAILED_EMAIL = True
+SEND_EMAIL = False
 DATASETS_FOLDER = 'datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
 DEFAULT_NUMBER_OF_FOLDS = 2  # 10
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST  # CandidationMethod.Mixed
-DEFAULT_NUMBER_OF_KERNELS = [11, 25]
+DEFAULT_NUMBER_OF_KERNELS = [25]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
-DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD, Normalization.ABSOLUTE, Normalization.NEGATIVE,
-                                 Normalization.SCALE]
+DEFAULT_NORMALIZATION_METHODS = [Normalization.SCALE]
 
 
 def send_email(user, pwd, recipient, subject, body, file):
@@ -167,11 +166,11 @@ def run_experiments(output, dataset, experiments):
         for experiment_name, experiment_params in experiments.items():
             for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
                 classifier_config = experiment_config[0]
-                components_num = experiment_config[1]
+                components_str = experiment_config[1]
                 kernels_num = experiment_config[2]
                 normalization = experiment_config[3]
-                components_num = components_num if isinstance(components_num, int) else \
-                    round(X.shape[1] * float(components_num[:-1]))
+                components_num = components_str if isinstance(components_str, int) else \
+                    round(X.shape[1] * float(components_str[:-1]))
                 kernels = [Kernel(experiment_params['kernel'], components_num, normalization) for _ in
                            itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
@@ -193,12 +192,12 @@ def run_experiments(output, dataset, experiments):
                     accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
-                    (build_experiment_key(experiment_name, classifier_config['name'], components_num,
+                    (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization,
                                           DEFAULT_CANDIDATION_METHOD, kernels), accuracy))
                 count += 1
                 print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
-                      build_experiment_key(experiment_name, classifier_config['name'], components_num,
+                      build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                            DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization,
                                            DEFAULT_CANDIDATION_METHOD))
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
@@ -307,6 +306,6 @@ if __name__ == '__main__':
     print(stat_results)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
-    if send_summary_email:
+    if send_summary_email and SEND_EMAIL:
         send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-                   'ak091283@gmail.com', 'Finished Running', stat_results if SEND_DETAILED_EMAIL else '', input_file)
+                   'ak091283@gmail.com', 'Finished Running', stat_results, input_file)

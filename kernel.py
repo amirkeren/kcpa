@@ -72,7 +72,7 @@ class Kernel:
                 "gamma": gamma,
                 "coef0": coef0
             }
-            kernel_instance = KernelPCA(n_components=self.n_components, kernel='sigmoid', gamma=gamma, coef0=coef0)
+            kernel_instance = KernelPCA(n_components=self.n_components, kernel='sigmoid', coef0=0.1)
         elif kernel_name == 'rbf':
             rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
             r = random.uniform(rbf_r[0], rbf_r[1])
@@ -99,7 +99,8 @@ class Kernel:
     def calculate_kernel(self, x):
         kernel_calculation = np.zeros((x.shape[0], self.n_components))
         for kernel_function, kernel_instance in self.kernel_instances.items():
-            temp_kernel_calculation = self._normalize_kernel(kernel_instance.fit_transform(x))
+            transformed = np.nan_to_num(kernel_instance.fit_transform(x))
+            temp_kernel_calculation = self._normalize_kernel(transformed)
             if self.kernel_combine == '+':
                 kernel_calculation += temp_kernel_calculation
             elif self.kernel_combine == '*':
