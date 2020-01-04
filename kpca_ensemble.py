@@ -39,7 +39,7 @@ DEFAULT_NUMBER_OF_FOLDS = 2  # 10
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST  # CandidationMethod.Mixed
 DEFAULT_NUMBER_OF_KERNELS = [25]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
-DEFAULT_NORMALIZATION_METHODS = [Normalization.SCALE]
+DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD]
 
 
 def send_email(user, pwd, recipient, subject, body, file):
