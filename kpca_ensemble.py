@@ -147,8 +147,9 @@ def choose_best_kernels(kernels_and_evaluations, method):
     if method == CandidationMethod.MIXED:
         top = math.ceil(KERNELS_TO_CHOOSE / 2)
         rest = KERNELS_TO_CHOOSE - top
-        return [tup[0] for tup in kernels_and_evaluations[rest:]].extend(
-            [tup[0] for tup in kernels_and_evaluations[-top:]])
+        kernels_result = [tup[0] for tup in kernels_and_evaluations[:rest]]
+        kernels_result.extend([tup[0] for tup in kernels_and_evaluations[-top:]])
+        return kernels_result
 
 
 def run_experiments(output, dataset, experiments):
