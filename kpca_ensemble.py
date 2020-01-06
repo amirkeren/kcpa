@@ -28,7 +28,7 @@ class CandidationMethod(Enum):
     MIXED = 2
 
 
-RUN_ON_LARGE_DATASETS = False
+RUN_ON_LARGE_DATASETS = True
 SEND_EMAIL = True
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
