@@ -213,10 +213,12 @@ def get_experiments_results():
     with open('experiments.json') as json_data_file:
         print(ctime(), 'Starting to run experiments')
         experiments = json.load(json_data_file)
-        datasets = [DATASETS_FOLDER + '\\' + f for f in listdir(DATASETS_FOLDER) if isfile(join(DATASETS_FOLDER, f))]
+        datasets = []
         if RUN_ON_LARGE_DATASETS:
             datasets.extend([LARGE_DATASETS_FOLDER + '\\' + f for f in listdir(LARGE_DATASETS_FOLDER)
                              if isfile(join(LARGE_DATASETS_FOLDER, f))])
+        datasets.extend([DATASETS_FOLDER + '\\' + f for f in listdir(DATASETS_FOLDER) if
+                         isfile(join(DATASETS_FOLDER, f))])
         output = mp.Queue()
         processes = []
         for dataset in [(dataset, pd.read_csv(dataset, header=None)) for dataset in datasets]:
