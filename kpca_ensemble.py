@@ -26,18 +26,19 @@ import math
 class CandidationMethod(Enum):
     BEST = 1
     MIXED = 2
+    NONE = 3
 
 
-RUN_ON_LARGE_DATASETS = True
+RUN_ON_LARGE_DATASETS = False
 SEND_EMAIL = True
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
-DEFAULT_NUMBER_OF_FOLDS = 2  # 10
-DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST  # CandidationMethod.MIXED
-DEFAULT_NUMBER_OF_KERNELS = [25]
+DEFAULT_NUMBER_OF_FOLDS = 10
+DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
+DEFAULT_NUMBER_OF_KERNELS = [11]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
 DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD]
 
@@ -177,7 +178,7 @@ def run_experiments(output, dataset, experiments):
                 kernels = [Kernel(experiment_params['kernel'], components_num, normalization) for _ in
                            itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
-                if len(kernels) > KERNELS_TO_CHOOSE:
+                if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
                     kernels = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
                                                   DEFAULT_CANDIDATION_METHOD)
                 accuracies = []
