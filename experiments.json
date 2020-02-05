@@ -1,22 +1,7 @@
 {
-  "linear": {
-    "kernel": {
-      "name": "linear"
-    }
-  },
   "polynomial": {
     "kernel": {
-      "name": "polynomial"
-    }
-  },
-  "linear_add_polynomial": {
-    "kernel": {
-      "name": "linear+polynomial"
-    }
-  },
-  "linear_mul_polynomial": {
-    "kernel": {
-      "name": "linear*polynomial"
+      "name": "sigmoid+polynomial"
     }
   }
 }

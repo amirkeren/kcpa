@@ -9,6 +9,7 @@ from os.path import isfile, join, exists
 from kernel import Kernel, Normalization
 from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
+from sklearn.preprocessing import StandardScaler
 from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
@@ -30,17 +31,17 @@ class CandidationMethod(Enum):
 
 
 RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = True
+SEND_EMAIL = False
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
-KERNELS_TO_CHOOSE = 11
+KERNELS_TO_CHOOSE = 10
 DEFAULT_NUMBER_OF_FOLDS = 10
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
 DEFAULT_NUMBER_OF_KERNELS = [10]
-DEFAULT_NUMBER_OF_COMPONENTS = ['0.75d', '0.5d']
-DEFAULT_NORMALIZATION_METHODS = [Normalization.STANDARD]
+DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
+DEFAULT_NORMALIZATION_METHODS = [Normalization.ABSOLUTE]
 
 
 def send_email(user, pwd, recipient, subject, body, file):
@@ -209,20 +210,22 @@ def run_experiments(output, dataset, experiments):
     except Exception as e:
         print(e)
 
+def get_datasets():
+    datasets = []
+    if RUN_ON_LARGE_DATASETS:
+        datasets.extend([LARGE_DATASETS_FOLDER + '\\' + f for f in listdir(LARGE_DATASETS_FOLDER)
+                         if isfile(join(LARGE_DATASETS_FOLDER, f))])
+    datasets.extend([DATASETS_FOLDER + '\\' + f for f in listdir(DATASETS_FOLDER) if
+                     isfile(join(DATASETS_FOLDER, f))])
+    return [(dataset, pd.read_csv(dataset, header=None)) for dataset in datasets]
 
 def get_experiments_results():
     with open('experiments.json') as json_data_file:
         print(ctime(), 'Starting to run experiments')
         experiments = json.load(json_data_file)
-        datasets = []
-        if RUN_ON_LARGE_DATASETS:
-            datasets.extend([LARGE_DATASETS_FOLDER + '\\' + f for f in listdir(LARGE_DATASETS_FOLDER)
-                             if isfile(join(LARGE_DATASETS_FOLDER, f))])
-        datasets.extend([DATASETS_FOLDER + '\\' + f for f in listdir(DATASETS_FOLDER) if
-                         isfile(join(DATASETS_FOLDER, f))])
         output = mp.Queue()
         processes = []
-        for dataset in [(dataset, pd.read_csv(dataset, header=None)) for dataset in datasets]:
+        for dataset in preprocess():
             p = mp.Process(target=run_experiments, args=(output, dataset, experiments))
             processes.append(p)
         for p in processes:
@@ -247,13 +250,13 @@ def get_experiments_results():
 
 def summarize_results(results_df):
     summary_results = {}
-    for i in range(1, len(CLASSIFIERS) + 1):
+    for i in range(len(CLASSIFIERS)):
         summary_results[results_df.columns[i].split('-')[1]] = {
             "baseline_accuracy": round(results_df.iloc[:, i].mean(), ACCURACY_FLOATING_POINT),
             "baseline_results": results_df.iloc[:, i],
             "experiments_accuracy": []
         }
-    for i in range(len(CLASSIFIERS) + 1, len(results_df.columns)):
+    for i in range(len(CLASSIFIERS), len(results_df.columns)):
         summary_results[results_df.columns[i].split('-')[1]]['experiments_accuracy'].append({
             "experiment": results_df.columns[i],
             "experiment_results": results_df.iloc[:, i],
@@ -291,6 +294,16 @@ def run_statistical_analysis(results_df):
         results_string += 'Wilcoxon: s = ' + str(stat) + ', p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
         results_string += '\n'
     return results_string
+
+
+def preprocess():
+    datasets = []
+    for (name, dataset) in get_datasets():
+        features = dataset.iloc[:, :-1]
+        scaled_features = StandardScaler().fit_transform(features.values)
+        scaled_dataset = pd.DataFrame(scaled_features, index=features.index, columns=features.columns)
+        datasets.append((name, pd.concat([scaled_dataset, dataset.iloc[:, -1]], axis=1)))
+    return datasets
 
 
 if __name__ == '__main__':

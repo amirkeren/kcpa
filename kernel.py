@@ -6,7 +6,7 @@ import re
 from enum import Enum
 
 DEFAULT_RANDOM_DISTRIBUTION_SIZE = 10
-DEFAULT_POLYNOMIAL_MULTIPLIER = 0.5
+DEFAULT_POLYNOMIAL_MULTIPLIER = 0.01
 DEFAULT_POLYNOMIAL_DEGREE = 3
 DEFAULT_COEFFICIENT_RANGE = [0.5, 1.5]
 DEFAULT_R_RANGE = [1, 3]
@@ -19,6 +19,7 @@ class Normalization(Enum):
     SCALE = 2
     ABSOLUTE = 3
     NEGATIVE = 4
+    NONE = 5
 
 
 np.seterr(divide='ignore', invalid='ignore')
@@ -51,17 +52,17 @@ class Kernel:
             multiplier = kernel_config['poly_multiplier'] if 'poly_multiplier' in kernel_config else \
                 DEFAULT_POLYNOMIAL_MULTIPLIER
             gamma = kernel_config['poly_gamma'] if 'poly_gamma' in kernel_config \
-                else 1 / (multiplier * np.max(random_distribution))
-            poly_coef = kernel_config['poly_coef'] if 'poly_coef' in kernel_config else DEFAULT_COEFFICIENT_RANGE
-            coef0 = random.uniform(poly_coef[0], poly_coef[1]) * avg_random_distribution
+                else multiplier * np.max(random_distribution)
+            # poly_coef = kernel_config['poly_coef'] if 'poly_coef' in kernel_config else DEFAULT_COEFFICIENT_RANGE
+            # coef0 = random.uniform(poly_coef[0], poly_coef[1]) * avg_random_distribution
             degree = kernel_config['poly_degree'] if 'poly_degree' in kernel_config else DEFAULT_POLYNOMIAL_DEGREE
             kernel_inner_params = {
                 "gamma": gamma,
-                "coef0": coef0,
+                # "coef0": coef0,
                 "degree": degree
             }
-            kernel_instance = KernelPCA(n_components=self.n_components, kernel='poly', gamma=gamma, coef0=coef0,
-                                        degree=degree)
+            kernel_instance = KernelPCA(n_components=self.n_components, kernel='poly', gamma=gamma,
+                                        degree=2)
         elif kernel_name == 'sigmoid':
             exp = kernel_config['sig_exp'] if 'sig_exp' in kernel_config else DEFAULT_EXPONENT
             gamma = kernel_config['sig_gamma'] if 'sig_gamma' in kernel_config else \
@@ -95,6 +96,8 @@ class Kernel:
             return x / np.max(np.abs(x), axis=0)
         if self.normalization_method == Normalization.STANDARD:
             return StandardScaler().fit_transform(x)
+        if self.normalization_method == Normalization.NONE:
+            return x
 
     def calculate_kernel(self, x):
         kernel_calculation = np.zeros((x.shape[0], self.n_components))

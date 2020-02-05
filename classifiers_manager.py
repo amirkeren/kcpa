@@ -6,25 +6,7 @@ from rotation_forest import RotationForestClassifier
 
 CLASSIFIERS = [
     {
-        "name": "decision_tree"
-    },
-    {
         "name": "decision_stump"
-    },
-    {
-         "name": "nearest_neighbors"
-    },
-    {
-        "name": "random_forest"
-    },
-    {
-        "name": "ada_boost"
-    },
-    {
-        "name": "gaussian_nb"
-    },
-    {
-        "name": "rotation_forest"
     }
 ]
 
