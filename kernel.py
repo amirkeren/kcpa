@@ -24,12 +24,18 @@ class Normalization(Enum):
 
 np.seterr(divide='ignore', invalid='ignore')
 
+kernel_to_normalization = {
+    'polynomial': Normalization.STANDARD,
+    'linear': Normalization.STANDARD,
+    'sigmoid': Normalization.STANDARD,
+    'rbf': Normalization.ABSOLUTE
+}
+
 
 class Kernel:
-    def __init__(self, kernel_config, components_num, normalization_method):
+    def __init__(self, kernel_config, components_num):
         self.kernel_params = {}
         self.kernel_instances = {}
-        self.normalization_method = normalization_method
         self.kernel_combine = None
         self.n_components = components_num
         self.kernel_name = kernel_config['name']
@@ -87,30 +93,31 @@ class Kernel:
         self.kernel_params[kernel_name] = kernel_inner_params
         self.kernel_instances[kernel_name] = kernel_instance
 
-    def _normalize_kernel(self, x):
-        if self.normalization_method == Normalization.SCALE:
+    @staticmethod
+    def _normalize_kernel(x, normalization_method):
+        if normalization_method == Normalization.SCALE:
             return scale(x, axis=0, with_mean=True, with_std=True, copy=True)
-        if self.normalization_method == Normalization.NEGATIVE:
+        if normalization_method == Normalization.NEGATIVE:
             return 2. * (x - np.min(x)) / np.ptp(x) - 1
-        if self.normalization_method == Normalization.ABSOLUTE:
+        if normalization_method == Normalization.ABSOLUTE:
             return x / np.max(np.abs(x), axis=0)
-        if self.normalization_method == Normalization.STANDARD:
+        if normalization_method == Normalization.STANDARD:
             return StandardScaler().fit_transform(x)
-        if self.normalization_method == Normalization.NONE:
+        if normalization_method == Normalization.NONE:
             return x
 
     def calculate_kernel(self, x):
         kernel_calculation = np.zeros((x.shape[0], self.n_components))
         for kernel_function, kernel_instance in self.kernel_instances.items():
             transformed = np.nan_to_num(kernel_instance.fit_transform(x))
-            temp_kernel_calculation = self._normalize_kernel(transformed)
+            temp_kernel_calculation = Kernel._normalize_kernel(transformed, kernel_to_normalization[kernel_function])
             if self.kernel_combine == '+':
                 kernel_calculation += temp_kernel_calculation
             elif self.kernel_combine == '*':
                 kernel_calculation *= temp_kernel_calculation
             else:
                 kernel_calculation = temp_kernel_calculation
-        return np.nan_to_num(self._normalize_kernel(kernel_calculation))
+        return np.nan_to_num(Kernel._normalize_kernel(kernel_calculation, kernel_to_normalization[kernel_function]))
 
     def to_string(self):
         return str(self.kernel_params)

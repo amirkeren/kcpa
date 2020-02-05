@@ -6,7 +6,7 @@ from email.utils import COMMASPACE, formatdate
 from enum import Enum
 from os import listdir, makedirs
 from os.path import isfile, join, exists
-from kernel import Kernel, Normalization
+from kernel import Kernel
 from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler
@@ -41,7 +41,6 @@ DEFAULT_NUMBER_OF_FOLDS = 10
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
 DEFAULT_NUMBER_OF_KERNELS = [10]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
-DEFAULT_NORMALIZATION_METHODS = [Normalization.ABSOLUTE]
 
 
 def send_email(user, pwd, recipient, subject, body, file):
@@ -101,9 +100,7 @@ def get_experiment_parameters(experiment_params):
         else DEFAULT_NUMBER_OF_COMPONENTS
     ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
         else DEFAULT_NUMBER_OF_KERNELS
-    normalization_method = Normalization[experiment_params['normalization']] \
-        if 'normalization' in experiment_params else DEFAULT_NORMALIZATION_METHODS
-    return classifiers_list, components, ensemble_size, normalization_method
+    return classifiers_list, components, ensemble_size
 
 
 def get_total_number_of_experiments(experiments):
@@ -173,10 +170,9 @@ def run_experiments(output, dataset, experiments):
                 classifier_config = experiment_config[0]
                 components_str = experiment_config[1]
                 kernels_num = experiment_config[2]
-                normalization = experiment_config[3]
                 components_num = components_str if isinstance(components_str, int) else \
                     round(X.shape[1] * float(components_str[:-1]))
-                kernels = [Kernel(experiment_params['kernel'], components_num, normalization) for _ in
+                kernels = [Kernel(experiment_params['kernel'], components_num) for _ in
                            itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
                 if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
@@ -198,17 +194,17 @@ def run_experiments(output, dataset, experiments):
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization,
-                                          DEFAULT_CANDIDATION_METHOD, kernels), accuracy))
+                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
+                                          kernels), accuracy))
                 count += 1
                 print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
                       build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, normalization,
-                                           DEFAULT_CANDIDATION_METHOD))
+                                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD))
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
         output.put(intermediate_results)
     except Exception as e:
         print(e)
+
 
 def get_datasets():
     datasets = []
@@ -218,6 +214,7 @@ def get_datasets():
     datasets.extend([DATASETS_FOLDER + '\\' + f for f in listdir(DATASETS_FOLDER) if
                      isfile(join(DATASETS_FOLDER, f))])
     return [(dataset, pd.read_csv(dataset, header=None)) for dataset in datasets]
+
 
 def get_experiments_results():
     with open('experiments.json') as json_data_file:
