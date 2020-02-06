@@ -8,6 +8,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernel import Kernel
 from classifiers_manager import get_classifier, CLASSIFIERS
+from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
 from normalization import normalize, Normalization
 from sklearn import metrics
@@ -31,7 +32,7 @@ class CandidationMethod(Enum):
 
 
 RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = True
+SEND_EMAIL = False
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
@@ -41,7 +42,7 @@ DEFAULT_NUMBER_OF_FOLDS = 10
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
 DEFAULT_NORMALIZATION_METHOD = Normalization.STANDARD
 DEFAULT_NUMBER_OF_KERNELS = [10]
-DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d', '0.75d']
+DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
 
 
 def send_email(user, pwd, recipient, subject, body, file):
@@ -153,11 +154,14 @@ def choose_best_kernels(kernels_and_evaluations, method):
 def run_experiments(output, dataset, experiments):
     try:
         dataset_name = dataset[0].split('\\')[1]
-        print(ctime(), 'Starting to run experiments on dataset', dataset_name)
+        # print(ctime(), 'Starting to run experiments on dataset', dataset_name)
         total_number_of_experiments = get_total_number_of_experiments(experiments)
         dataframe = dataset[1]
         dataframe = dataframe.fillna(dataframe.mean())
         X = dataframe.iloc[:, :-1]
+        euclid_distances = euclidean_distances(X, X)
+        avg_euclid_distances = np.average(euclid_distances)
+        max_euclid_distances = np.max(euclid_distances)
         y = dataframe.iloc[:, -1]
         splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
                                          n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1, random_state=0).split(X, y)
@@ -165,15 +169,15 @@ def run_experiments(output, dataset, experiments):
         intermediate_results = run_baseline(dataset_name, X, y, splits_copy)
         count = 0
         for experiment_name, experiment_params in experiments.items():
-            print(ctime(), 'Starting to run experiment', experiment_name, 'on', dataset_name)
+            print(ctime(), 'Starting to run experiments', experiment_name, 'on', dataset_name)
             for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
                 classifier_config = experiment_config[0]
                 components_str = experiment_config[1]
                 kernels_num = experiment_config[2]
                 components_num = components_str if isinstance(components_str, int) else \
                     round(X.shape[1] * float(components_str[:-1]))
-                kernels = [Kernel(experiment_params['kernel'], components_num) for _ in
-                           itertools.repeat(None, kernels_num)]
+                kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
+                                  max_euclid_distances) for _ in itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
                 if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
                     kernels = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
@@ -190,7 +194,8 @@ def run_experiments(output, dataset, experiments):
                         clf.fit(embedded_train, y_train)
                         results[kernel] = clf.predict(embedded_test)
                     results_df = pd.DataFrame.from_dict(results)
-                    accuracies.append(metrics.accuracy_score(y_test, results_df.mode(axis=1).iloc[:, 0]))
+                    ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
+                    accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,

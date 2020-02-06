@@ -22,9 +22,11 @@ kernel_to_normalization = {
 
 
 class Kernel:
-    def __init__(self, kernel_config, components_num):
+    def __init__(self, kernel_config, components_num, avg_euclidean_distances, max_euclidean_distances):
         self.kernel_params = {}
         self.kernel_instances = {}
+        self.avg_euclidean_distances = avg_euclidean_distances
+        self.max_euclidean_distances = max_euclidean_distances
         self.kernel_combine = None
         self.n_components = components_num
         self.kernel_name = kernel_config['name']
@@ -66,8 +68,9 @@ class Kernel:
                                         eigen_solver='arpack')
         elif kernel_name == 'rbf':
             rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
-            r = random.uniform(rbf_r[0], rbf_r[1])
-            gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config else 1 / pow(avg_random_distribution, r)
+            r = np.random.uniform(rbf_r[0], rbf_r[1])
+            gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config else 1 / \
+                                                                                    pow(self.avg_euclidean_distances, r)
             kernel_inner_params = {
                 "gamma": gamma
             }
