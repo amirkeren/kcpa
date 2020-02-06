@@ -9,7 +9,7 @@ from os.path import isfile, join, exists
 from kernel import Kernel
 from classifiers_manager import get_classifier, CLASSIFIERS
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
-from sklearn.preprocessing import StandardScaler
+from normalization import normalize, Normalization
 from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
@@ -31,7 +31,7 @@ class CandidationMethod(Enum):
 
 
 RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = False
+SEND_EMAIL = True
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
@@ -39,6 +39,7 @@ ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 10
 DEFAULT_NUMBER_OF_FOLDS = 10
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
+DEFAULT_NORMALIZATION_METHOD = Normalization.STANDARD
 DEFAULT_NUMBER_OF_KERNELS = [10]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
 
@@ -66,7 +67,7 @@ def send_email(user, pwd, recipient, subject, body, file):
     print('Summary email sent')
 
 
-def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, normalization=None,
+def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None,
                          candidation_method=None, kernels=None):
     key = experiment_name + '-' + classifier
     if components:
@@ -75,8 +76,6 @@ def build_experiment_key(experiment_name, classifier, components=None, folds=Non
         key += '-' + str(folds)
     if kernels_num:
         key += '-' + str(kernels_num)
-    if normalization:
-        key += '-' + str(normalization)
     if candidation_method:
         key += '-' + str(candidation_method)
     if kernels:
@@ -166,6 +165,7 @@ def run_experiments(output, dataset, experiments):
         intermediate_results = run_baseline(dataset_name, X, y, splits_copy)
         count = 0
         for experiment_name, experiment_params in experiments.items():
+            print(ctime(), 'Starting to run experiment', experiment_name, 'on', dataset_name)
             for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
                 classifier_config = experiment_config[0]
                 components_str = experiment_config[1]
@@ -293,11 +293,11 @@ def run_statistical_analysis(results_df):
     return results_string
 
 
-def preprocess():
+def preprocess(normalization_method=DEFAULT_NORMALIZATION_METHOD):
     datasets = []
     for (name, dataset) in get_datasets():
         features = dataset.iloc[:, :-1]
-        scaled_features = StandardScaler().fit_transform(features.values)
+        scaled_features = normalize(features.values, normalization_method)
         scaled_dataset = pd.DataFrame(scaled_features, index=features.index, columns=features.columns)
         datasets.append((name, pd.concat([scaled_dataset, dataset.iloc[:, -1]], axis=1)))
     return datasets

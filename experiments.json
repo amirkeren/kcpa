@@ -1,7 +1,62 @@
 {
+  "linear": {
+    "kernel": {
+      "name": "linear"
+    }
+  },
+  "sigmoid": {
+    "kernel": {
+      "name": "sigmoid"
+    }
+  },
   "polynomial": {
     "kernel": {
+      "name": "polynomial"
+    }
+  },
+  "rbf": {
+    "kernel": {
+      "name": "rbf"
+    }
+  },
+  "linear_add_sigmoid": {
+    "kernel": {
+      "name": "linear+sigmoid"
+    }
+  },
+  "linear_add_polynomial": {
+    "kernel": {
+      "name": "linear+polynomial"
+    }
+  },
+  "sigmoid_add_polynomial": {
+    "kernel": {
       "name": "sigmoid+polynomial"
+    }
+  },
+  "polynomial_add_rbf": {
+    "kernel": {
+      "name": "polynomial+rbf"
+    }
+  },
+  "linear_mul_sigmoid": {
+    "kernel": {
+      "name": "linear*sigmoid"
+    }
+  },
+  "linear_mul_polynomial": {
+    "kernel": {
+      "name": "linear*polynomial"
+    }
+  },
+  "sigmoid_mul_polynomial": {
+    "kernel": {
+      "name": "sigmoid*polynomial"
+    }
+  },
+  "sigmoid_mul_rbf": {
+    "kernel": {
+      "name": "sigmoid*rbf"
     }
   }
 }
