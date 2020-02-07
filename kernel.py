@@ -4,6 +4,10 @@ import numpy as np
 import random
 import re
 
+from scipy.spatial.distance import pdist, squareform
+from scipy import exp
+from scipy.linalg import eigh
+
 DEFAULT_RANDOM_DISTRIBUTION_SIZE = 10
 DEFAULT_POLYNOMIAL_DEGREE = 2
 DEFAULT_GAMMA_RANGE = [-1, 1]
@@ -19,6 +23,18 @@ kernel_to_normalization = {
     'sigmoid': Normalization.STANDARD,
     'rbf': Normalization.ABSOLUTE
 }
+
+
+def _rbf_kernel_pca(x, gamma, n_components):
+    sq_dists = pdist(x, 'sqeuclidean')
+    mat_sq_dists = squareform(sq_dists)
+    K = exp(-gamma * mat_sq_dists)
+    N = K.shape[0]
+    one_n = np.ones((N, N)) / N
+    K = K - one_n.dot(K) - K.dot(one_n) + one_n.dot(K).dot(one_n)
+    _, eigvecs = eigh(K)
+    eigvecs = eigvecs[:, ::-1]
+    return np.column_stack([eigvecs[:, i] for i in range(n_components)])
 
 
 class Kernel:
@@ -56,8 +72,7 @@ class Kernel:
             kernel_instance = KernelPCA(n_components=self.n_components, kernel='poly', gamma=gamma, degree=degree)
         elif kernel_name == 'sigmoid':
             exp = kernel_config['sig_exp'] if 'sig_exp' in kernel_config else DEFAULT_EXPONENT
-            gamma = kernel_config['sig_gamma'] if 'sig_gamma' in kernel_config else \
-                1 / pow(avg_random_distribution, exp)
+            gamma = kernel_config['sig_gamma'] if 'sig_gamma' in kernel_config else 1 / (avg_random_distribution ** exp)
             sig_coef = kernel_config['sig_coef'] if 'sig_coef' in kernel_config else DEFAULT_SIGMOID_COEFFICIENT_RANGE
             coef0 = random.uniform(sig_coef[0], sig_coef[1])
             kernel_inner_params = {
@@ -69,8 +84,8 @@ class Kernel:
         elif kernel_name == 'rbf':
             rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
             r = np.random.uniform(rbf_r[0], rbf_r[1])
-            gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config else 1 / \
-                                                                                    pow(self.avg_euclidean_distances, r)
+            gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config \
+                else 1 / (self.avg_euclidean_distances ** r)
             kernel_inner_params = {
                 "gamma": gamma
             }
@@ -81,17 +96,18 @@ class Kernel:
         self.kernel_instances[kernel_name] = kernel_instance
 
     def calculate_kernel(self, x):
-        kernel_calculation = np.zeros((x.shape[0], self.n_components))
-        for kernel_function, kernel_instance in self.kernel_instances.items():
-            transformed = np.nan_to_num(kernel_instance.fit_transform(x))
-            temp_kernel_calculation = normalize(transformed, kernel_to_normalization[kernel_function])
-            if self.kernel_combine == '+':
-                kernel_calculation += temp_kernel_calculation
-            elif self.kernel_combine == '*':
-                kernel_calculation *= temp_kernel_calculation
-            else:
-                kernel_calculation = temp_kernel_calculation
-        return np.nan_to_num(normalize(kernel_calculation, kernel_to_normalization[kernel_function]))
+        # kernel_calculation = np.zeros((x.shape[0], self.n_components))
+        # for kernel_function, kernel_instance in self.kernel_instances.items():
+        #     transformed = np.nan_to_num(kernel_instance.fit_transform(x))
+        #     temp_kernel_calculation = normalize(transformed, kernel_to_normalization[kernel_function])
+        #     if self.kernel_combine == '+':
+        #         kernel_calculation += temp_kernel_calculation
+        #     elif self.kernel_combine == '*':
+        #         kernel_calculation *= temp_kernel_calculation
+        #     else:
+        #         kernel_calculation = temp_kernel_calculation
+        # return np.nan_to_num(normalize(kernel_calculation, kernel_to_normalization[kernel_function]))
+        return _rbf_kernel_pca(x, self.kernel_instances['rbf'].gamma, self.n_components)
 
     def to_string(self):
         return str(self.kernel_params)
