@@ -37,11 +37,11 @@ DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
-KERNELS_TO_CHOOSE = 10
+KERNELS_TO_CHOOSE = 11
 DEFAULT_NUMBER_OF_FOLDS = 10
-DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
+DEFAULT_CANDIDATION_METHOD = CandidationMethod.MIXED
 DEFAULT_NORMALIZATION_METHOD = Normalization.STANDARD
-DEFAULT_NUMBER_OF_KERNELS = [10]
+DEFAULT_NUMBER_OF_KERNELS = [20]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
 
 
@@ -132,7 +132,7 @@ def evaluate_all_kernels(kernels, X, y, classifier_config, splits):
             X_train, X_test = X.values[train_index], X.values[test_index]
             y_train, y_test = y.values[train_index], y.values[test_index]
             embedded_train = kernel.calculate_kernel(X_train)
-            embedded_test = kernel.calculate_kernel(X_test)
+            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
             clf = get_classifier(classifier_config)
             clf.fit(embedded_train, y_train)
             accuracies.append(metrics.accuracy_score(y_test, clf.predict(embedded_test)))
@@ -154,7 +154,7 @@ def choose_best_kernels(kernels_and_evaluations, method):
 def run_experiments(output, dataset, experiments):
     try:
         dataset_name = dataset[0].split('\\')[1]
-        # print(ctime(), 'Starting to run experiments on dataset', dataset_name)
+        print(ctime(), 'Starting to run experiments on dataset', dataset_name)
         total_number_of_experiments = get_total_number_of_experiments(experiments)
         dataframe = dataset[1]
         dataframe = dataframe.fillna(dataframe.mean())
@@ -189,7 +189,7 @@ def run_experiments(output, dataset, experiments):
                     y_train, y_test = y.values[train_index], y.values[test_index]
                     for kernel in kernels:
                         embedded_train = kernel.calculate_kernel(X_train)
-                        embedded_test = kernel.calculate_kernel(X_test)
+                        embedded_test = kernel.calculate_kernel(X_test, is_test=True)
                         clf = get_classifier(classifier_config)
                         clf.fit(embedded_train, y_train)
                         results[kernel] = clf.predict(embedded_test)
@@ -301,6 +301,7 @@ def run_statistical_analysis(results_df):
 def preprocess(normalization_method=DEFAULT_NORMALIZATION_METHOD):
     datasets = []
     for (name, dataset) in get_datasets():
+        dataset.fillna(dataset.mean(), inplace=True)
         features = dataset.iloc[:, :-1]
         scaled_features = normalize(features.values, normalization_method)
         scaled_dataset = pd.DataFrame(scaled_features, index=features.index, columns=features.columns)

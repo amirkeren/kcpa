@@ -1,5 +1,5 @@
 from sklearn.decomposition import KernelPCA
-from normalization import normalize, Normalization
+from normalization import Normalization
 import numpy as np
 import random
 import re
@@ -54,13 +54,9 @@ class Kernel:
             self._generate_kernel(kernel_config, kernel_name)
 
     def _generate_kernel(self, kernel_config, kernel_name):
-        distribution_size = kernel_config['distribution_size'] if 'distribution_size' in kernel_config else \
-            DEFAULT_RANDOM_DISTRIBUTION_SIZE
-        random_distribution = np.random.uniform(size=distribution_size)
-        avg_random_distribution = np.mean(random_distribution)
         if kernel_name == 'linear':
             kernel_inner_params = {}
-            kernel_instance = KernelPCA(n_components=self.n_components, eigen_solver='arpack')
+            kernel_instance = KernelPCA(n_components=self.n_components)
         elif kernel_name == 'polynomial':
             gamma_range = kernel_config['poly_gamma'] if 'poly_gamma' in kernel_config else DEFAULT_GAMMA_RANGE
             gamma = random.uniform(gamma_range[0], gamma_range[1])
@@ -71,6 +67,10 @@ class Kernel:
             }
             kernel_instance = KernelPCA(n_components=self.n_components, kernel='poly', gamma=gamma, degree=degree)
         elif kernel_name == 'sigmoid':
+            distribution_size = kernel_config['distribution_size'] if 'distribution_size' in kernel_config else \
+                DEFAULT_RANDOM_DISTRIBUTION_SIZE
+            random_distribution = np.random.uniform(size=distribution_size)
+            avg_random_distribution = np.mean(random_distribution)
             exp = kernel_config['sig_exp'] if 'sig_exp' in kernel_config else DEFAULT_EXPONENT
             gamma = kernel_config['sig_gamma'] if 'sig_gamma' in kernel_config else 1 / (avg_random_distribution ** exp)
             sig_coef = kernel_config['sig_coef'] if 'sig_coef' in kernel_config else DEFAULT_SIGMOID_COEFFICIENT_RANGE
@@ -79,8 +79,7 @@ class Kernel:
                 "gamma": gamma,
                 "coef0": coef0
             }
-            kernel_instance = KernelPCA(n_components=self.n_components, kernel='sigmoid', coef0=coef0,
-                                        eigen_solver='arpack')
+            kernel_instance = KernelPCA(n_components=self.n_components, kernel='sigmoid', coef0=coef0)
         elif kernel_name == 'rbf':
             rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
             r = np.random.uniform(rbf_r[0], rbf_r[1])
@@ -95,19 +94,13 @@ class Kernel:
         self.kernel_params[kernel_name] = kernel_inner_params
         self.kernel_instances[kernel_name] = kernel_instance
 
-    def calculate_kernel(self, x):
-        # kernel_calculation = np.zeros((x.shape[0], self.n_components))
-        # for kernel_function, kernel_instance in self.kernel_instances.items():
-        #     transformed = np.nan_to_num(kernel_instance.fit_transform(x))
-        #     temp_kernel_calculation = normalize(transformed, kernel_to_normalization[kernel_function])
-        #     if self.kernel_combine == '+':
-        #         kernel_calculation += temp_kernel_calculation
-        #     elif self.kernel_combine == '*':
-        #         kernel_calculation *= temp_kernel_calculation
-        #     else:
-        #         kernel_calculation = temp_kernel_calculation
-        # return np.nan_to_num(normalize(kernel_calculation, kernel_to_normalization[kernel_function]))
-        return _rbf_kernel_pca(x, self.kernel_instances['rbf'].gamma, self.n_components)
+    def calculate_kernel(self, x, is_test=False):
+        for kernel_function, kernel_instance in self.kernel_instances.items():
+            if is_test:
+                transformed = kernel_instance.transform(x)
+            else:
+                transformed = kernel_instance.fit_transform(x)
+        return transformed
 
     def to_string(self):
         return str(self.kernel_params)
