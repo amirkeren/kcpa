@@ -1,4 +1,4 @@
-from sklearn.decomposition import KernelPCA
+from kernel_pca import KernelPCA
 from normalization import Normalization
 import numpy as np
 import random
