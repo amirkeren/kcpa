@@ -11,12 +11,10 @@ from sklearn.metrics.pairwise import pairwise_kernels
 
 
 class KernelPCA(TransformerMixin, BaseEstimator):
-    def __init__(self, n_components=None, kernel="linear", gamma=None, degree=3, coef0=1, n_jobs=None):
+    def __init__(self, n_components, kernel_params, kernel_combine, n_jobs=None):
+        self.kernel_params = kernel_params
+        self.kernel_combine = kernel_combine
         self.n_components = n_components
-        self.kernel = kernel
-        self.gamma = gamma
-        self.degree = degree
-        self.coef0 = coef0
         self.n_jobs = n_jobs
 
     @property
@@ -24,8 +22,8 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         return self.kernel == "precomputed"
 
     def _get_kernel(self, X, Y=None):
-        params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
-        return pairwise_kernels(X, Y, metric=self.kernel, filter_params=True, n_jobs=self.n_jobs, **params)
+        for kernel, params in self.kernel_params.items():
+            return pairwise_kernels(X, Y, metric=kernel, filter_params=True, n_jobs=self.n_jobs, **params)
 
     def _fit_transform(self, K):
         K = self._centerer.fit_transform(K)
