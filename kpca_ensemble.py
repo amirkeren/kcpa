@@ -8,7 +8,7 @@ from enum import Enum
 from os import listdir, makedirs
 from os.path import isfile, join, exists
 from kernel import Kernel
-from classifiers_manager import get_classifier, CLASSIFIERS
+from classifiers_manager import get_classifier, CLASSIFIERS, is_ensemble_classifier
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
 from normalization import normalize, Normalization
@@ -179,7 +179,7 @@ def run_experiments(output, dataset, experiments):
                         (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                               DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
                                               kernels), -1))
-                    break
+                    continue
                 components_str = experiment_config[1]
                 kernels_num = experiment_config[2]
                 components_num = components_str if isinstance(components_str, int) else \
@@ -267,6 +267,8 @@ def summarize_results(results_df):
             "experiments_accuracy": []
         }
     for i in range(len(CLASSIFIERS), len(results_df.columns)):
+        if is_ensemble_classifier(results_df.columns[i].split("-")[1]):
+            continue
         summary_results[results_df.columns[i].split('-')[1]]['experiments_accuracy'].append({
             "experiment": results_df.columns[i],
             "experiment_results": results_df.iloc[:, i],
@@ -287,6 +289,8 @@ def run_statistical_analysis(results_df):
     summarized_results = summarize_results(results_df)
     results_string = ''
     for key, value in summarized_results.items():
+        if is_ensemble_classifier(key):
+            continue
         baseline = value['baseline_results']
         experiment = value['best_experiment']['experiment_results']
         baseline_mean = value['baseline_accuracy']

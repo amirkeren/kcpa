@@ -1,3 +1,4 @@
+from distutils import util
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, BaggingClassifier
@@ -14,7 +15,7 @@ CLASSIFIERS = [
         "ensemble": "False"
     },
     {
-         "name": "nearest_neighbors",
+        "name": "nearest_neighbors",
         "ensemble": "False"
     },
     {
@@ -85,3 +86,10 @@ def get_classifier(classifier_config):
                                               n_estimators=classifier_params['n_estimators'], random_state=0)
         return GradientBoostingClassifier(random_state=0)
     raise NotImplementedError('Unsupported classifier')
+
+
+def is_ensemble_classifier(classifier_name):
+    for classifier in CLASSIFIERS:
+        if classifier['name'] == classifier_name:
+            return bool(util.strtobool(classifier['ensemble']))
+    return False
