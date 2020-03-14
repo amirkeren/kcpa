@@ -1,7 +1,127 @@
 {
+  "laplacian": {
+    "kernel": {
+      "name": "laplacian"
+    }
+  },
+  "linear": {
+    "kernel": {
+      "name": "linear"
+    }
+  },
+  "sigmoid": {
+    "kernel": {
+      "name": "sigmoid"
+    }
+  },
+  "poly": {
+    "kernel": {
+      "name": "poly"
+    }
+  },
   "rbf": {
     "kernel": {
-      "name": "rbf+linear"
+      "name": "rbf"
+    }
+  },
+  "laplacian_add_linear": {
+    "kernel": {
+      "name": "laplacian+linear"
+    }
+  },
+  "laplacian_add_sigmoid": {
+    "kernel": {
+      "name": "laplacian+sigmoid"
+    }
+  },
+  "laplacian_add_poly": {
+    "kernel": {
+      "name": "laplacian+poly"
+    }
+  },
+  "laplacian_add_rbf": {
+    "kernel": {
+      "name": "laplacian+rbf"
+    }
+  },
+  "linear_add_sigmoid": {
+    "kernel": {
+      "name": "linear+sigmoid"
+    }
+  },
+  "linear_add_poly": {
+    "kernel": {
+      "name": "linear+poly"
+    }
+  },
+  "linear_add_rbf": {
+    "kernel": {
+      "name": "linear+rbf"
+    }
+  },
+  "sigmoid_add_poly": {
+    "kernel": {
+      "name": "sigmoid+poly"
+    }
+  },
+  "sigmoid_add_rbf": {
+    "kernel": {
+      "name": "sigmoid+rbf"
+    }
+  },
+  "poly_add_rbf": {
+    "kernel": {
+      "name": "poly+rbf"
+    }
+  },
+  "laplacian_mul_linear": {
+    "kernel": {
+      "name": "laplacian*linear"
+    }
+  },
+  "laplacian_mul_sigmoid": {
+    "kernel": {
+      "name": "laplacian*sigmoid"
+    }
+  },
+  "laplacian_mul_poly": {
+    "kernel": {
+      "name": "laplacian*poly"
+    }
+  },
+  "laplacian_mul_rbf": {
+    "kernel": {
+      "name": "laplacian*rbf"
+    }
+  },
+  "linear_mul_sigmoid": {
+    "kernel": {
+      "name": "linear*sigmoid"
+    }
+  },
+  "linear_mul_poly": {
+    "kernel": {
+      "name": "linear*poly"
+    }
+  },
+  "linear_mul_rbf": {
+    "kernel": {
+      "name": "linear*rbf"
+    }
+  },
+  "sigmoid_mul_poly": {
+    "kernel": {
+      "name": "sigmoid*poly"
+    }
+  },
+  "sigmoid_mul_rbf": {
+    "kernel": {
+      "name": "sigmoid*rbf"
+    }
+  },
+  "poly_mul_rbf": {
+    "kernel": {
+      "name": "poly*rbf"
     }
   }
 }

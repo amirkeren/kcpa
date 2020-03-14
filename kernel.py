@@ -1,12 +1,7 @@
 from kernel_pca import KernelPCA
-from normalization import Normalization
 import numpy as np
 import random
 import re
-
-from scipy.spatial.distance import pdist, squareform
-from scipy import exp
-from scipy.linalg import eigh
 
 DEFAULT_RANDOM_DISTRIBUTION_SIZE = 10
 DEFAULT_POLYNOMIAL_DEGREE = 2
@@ -14,27 +9,6 @@ DEFAULT_GAMMA_RANGE = [-1, 1]
 DEFAULT_R_RANGE = [1, 3]
 DEFAULT_EXPONENT = 5
 DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
-
-np.seterr(divide='ignore', invalid='ignore')
-
-kernel_to_normalization = {
-    'polynomial': Normalization.STANDARD,
-    'linear': Normalization.STANDARD,
-    'sigmoid': Normalization.STANDARD,
-    'rbf': Normalization.ABSOLUTE
-}
-
-
-def _rbf_kernel_pca(x, gamma, n_components):
-    sq_dists = pdist(x, 'sqeuclidean')
-    mat_sq_dists = squareform(sq_dists)
-    K = exp(-gamma * mat_sq_dists)
-    N = K.shape[0]
-    one_n = np.ones((N, N)) / N
-    K = K - one_n.dot(K) - K.dot(one_n) + one_n.dot(K).dot(one_n)
-    _, eigvecs = eigh(K)
-    eigvecs = eigvecs[:, ::-1]
-    return np.column_stack([eigvecs[:, i] for i in range(n_components)])
 
 
 class Kernel:
@@ -84,6 +58,14 @@ class Kernel:
             r = np.random.uniform(rbf_r[0], rbf_r[1])
             gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config \
                 else 1 / (self.avg_euclidean_distances ** r)
+            kernel_inner_params['gamma'] = gamma
+        elif kernel_name == 'laplacian':
+            distribution_size = kernel_config['distribution_size'] if 'distribution_size' in kernel_config else \
+                DEFAULT_RANDOM_DISTRIBUTION_SIZE
+            random_distribution = np.random.uniform(size=distribution_size)
+            avg_random_distribution = np.mean(random_distribution)
+            exp = kernel_config['lap_exp'] if 'lap_exp' in kernel_config else DEFAULT_EXPONENT
+            gamma = kernel_config['lap_gamma'] if 'lap_gamma' in kernel_config else 1 / (avg_random_distribution ** exp)
             kernel_inner_params['gamma'] = gamma
         else:
             raise NotImplementedError('Unsupported kernel')
