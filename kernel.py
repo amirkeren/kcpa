@@ -62,7 +62,7 @@ class Kernel:
         }
         if kernel_name == 'linear':
             pass
-        elif kernel_name == 'polynomial':
+        elif kernel_name == 'poly':
             gamma_range = kernel_config['poly_gamma'] if 'poly_gamma' in kernel_config else DEFAULT_GAMMA_RANGE
             gamma = random.uniform(gamma_range[0], gamma_range[1])
             degree = kernel_config['poly_degree'] if 'poly_degree' in kernel_config else DEFAULT_POLYNOMIAL_DEGREE

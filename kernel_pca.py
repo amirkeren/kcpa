@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import linalg
+from functools import reduce
 from scipy.sparse.linalg import eigsh
 
 from sklearn.utils import check_random_state
@@ -22,8 +23,16 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         return self.kernel == "precomputed"
 
     def _get_kernel(self, X, Y=None):
+        kernels = []
         for kernel, params in self.kernel_params.items():
-            return pairwise_kernels(X, Y, metric=kernel, filter_params=True, n_jobs=self.n_jobs, **params)
+            kernels.append(pairwise_kernels(X, Y, metric=kernel, filter_params=True, n_jobs=self.n_jobs, **params))
+        if len(kernels) == 1 or self.kernel_combine is None:
+            return kernels[0]
+        if self.kernel_combine == '+':
+            return reduce((lambda x, y: x + y), kernels)
+        return reduce((lambda x, y: x * y), kernels)
+
+
 
     def _fit_transform(self, K):
         K = self._centerer.fit_transform(K)

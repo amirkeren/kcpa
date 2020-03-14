@@ -1,7 +1,7 @@
 {
   "rbf": {
     "kernel": {
-      "name": "rbf"
+      "name": "rbf+linear"
     }
   }
 }
