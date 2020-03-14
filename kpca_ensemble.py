@@ -1,3 +1,4 @@
+from distutils import util
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -37,11 +38,11 @@ DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
-KERNELS_TO_CHOOSE = 10
-DEFAULT_NUMBER_OF_FOLDS = 10
-DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
+KERNELS_TO_CHOOSE = 11
+DEFAULT_NUMBER_OF_FOLDS = 10  # 2
+DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST
 DEFAULT_NORMALIZATION_METHOD = Normalization.STANDARD
-DEFAULT_NUMBER_OF_KERNELS = [10]
+DEFAULT_NUMBER_OF_KERNELS = [20]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
 
 
@@ -172,6 +173,13 @@ def run_experiments(output, dataset, experiments):
             print(ctime(), 'Starting to run experiments', experiment_name, 'on', dataset_name)
             for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
                 classifier_config = experiment_config[0]
+                if bool(util.strtobool(classifier_config['ensemble'])):
+                    count += 1
+                    intermediate_results.setdefault(dataset_name, []).append(
+                        (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
+                                              kernels), -1))
+                    break
                 components_str = experiment_config[1]
                 kernels_num = experiment_config[2]
                 components_num = components_str if isinstance(components_str, int) else \

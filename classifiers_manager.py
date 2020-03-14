@@ -1,12 +1,45 @@
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, BaggingClassifier
 from sklearn.naive_bayes import GaussianNB
 from rotation_forest import RotationForestClassifier
 
 CLASSIFIERS = [
     {
-        "name": "decision_tree"
+        "name": "decision_tree",
+        "ensemble": "False"
+    },
+    {
+        "name": "decision_stump",
+        "ensemble": "False"
+    },
+    {
+         "name": "nearest_neighbors",
+        "ensemble": "False"
+    },
+    {
+        "name": "gaussian_nb",
+        "ensemble": "False"
+    },
+    {
+        "name": "random_forest",
+        "ensemble": "True"
+    },
+    {
+        "name": "ada_boost",
+        "ensemble": "True"
+    },
+    {
+        "name": "rotation_forest",
+        "ensemble": "True"
+    },
+    {
+        "name": "bagging",
+        "ensemble": "True"
+    },
+    {
+        "name": "gradient_boosting",
+        "ensemble": "True"
     }
 ]
 
@@ -42,4 +75,13 @@ def get_classifier(classifier_config):
             return RotationForestClassifier(max_depth=classifier_params['max_depth'],
                                             n_estimators=classifier_params['n_estimators'], random_state=0)
         return RotationForestClassifier(random_state=0)
+    if classifier_name == 'bagging':
+        if classifier_params:
+            return BaggingClassifier(n_estimators=classifier_params['n_estimators'], random_state=0)
+        return BaggingClassifier(random_state=0)
+    if classifier_name == 'gradient_boosting':
+        if classifier_params:
+            return GradientBoostingClassifier(max_depth=classifier_params['max_depth'],
+                                              n_estimators=classifier_params['n_estimators'], random_state=0)
+        return GradientBoostingClassifier(random_state=0)
     raise NotImplementedError('Unsupported classifier')
