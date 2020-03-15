@@ -33,7 +33,7 @@ class CandidationMethod(Enum):
 
 
 RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = False
+SEND_EMAIL = True
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'

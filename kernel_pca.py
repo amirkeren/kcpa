@@ -5,7 +5,8 @@ from scipy.sparse.linalg import eigsh
 
 from sklearn.utils import check_random_state
 from sklearn.utils.extmath import svd_flip
-from sklearn.utils.validation import (check_is_fitted, check_array, _check_psd_eigenvalues)
+# from sklearn.utils.validation import check_is_fitted, check_array, _check_psd_eigenvalues
+from sklearn.utils import validation
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import KernelCenterer
 from sklearn.metrics.pairwise import pairwise_kernels
@@ -51,7 +52,7 @@ class KernelPCA(TransformerMixin, BaseEstimator):
             random_state = check_random_state(None)
             v0 = random_state.uniform(-1, 1, K.shape[0])
             self.lambdas_, self.alphas_ = eigsh(K, n_components, which="LA", tol=0, maxiter=None, v0=v0)
-        self.lambdas_ = _check_psd_eigenvalues(self.lambdas_, enable_warnings=False)
+        self.lambdas_ = validation._check_psd_eigenvalues(self.lambdas_, enable_warnings=False)
         self.alphas_, _ = svd_flip(self.alphas_, np.empty_like(self.alphas_).T)
         indices = self.lambdas_.argsort()[::-1]
         self.lambdas_ = self.lambdas_[indices]
@@ -59,7 +60,7 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         return K
 
     def fit(self, X):
-        X = check_array(X, accept_sparse='csr', copy=False)
+        X = validation.check_array(X, accept_sparse='csr', copy=False)
         self._centerer = KernelCenterer()
         K = self._get_kernel(X)
         self._fit_transform(K)
@@ -72,7 +73,7 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         return X_transformed
 
     def transform(self, X):
-        check_is_fitted(self)
+        validation.check_is_fitted(self)
         K = self._centerer.transform(self._get_kernel(X, self.X_fit_))
         non_zeros = np.flatnonzero(self.lambdas_)
         scaled_alphas = np.zeros_like(self.alphas_)
