@@ -152,8 +152,10 @@ def choose_best_kernels(kernels_and_evaluations, method):
         return kernels_result
 
 
-def run_experiments(output, dataset, experiments):
+def run_experiments(dataset):
     try:
+        with open('experiments.json') as json_data_file:
+            experiments = json.load(json_data_file)
         dataset_name = dataset[0].split('\\')[1]
         print(ctime(), 'Starting to run experiments on dataset', dataset_name)
         total_number_of_experiments = get_total_number_of_experiments(experiments)
@@ -175,10 +177,10 @@ def run_experiments(output, dataset, experiments):
                 classifier_config = experiment_config[0]
                 if bool(util.strtobool(classifier_config['ensemble'])):
                     count += 1
-                    intermediate_results.setdefault(dataset_name, []).append(
-                        (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
-                                              kernels), -1))
+                    # intermediate_results.setdefault(dataset_name, []).append(
+                    #     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                    #                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
+                    #                           kernels), -1))
                     continue
                 components_str = experiment_config[1]
                 kernels_num = experiment_config[2]
@@ -214,7 +216,7 @@ def run_experiments(output, dataset, experiments):
                       build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                            DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD))
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
-        output.put(intermediate_results)
+        return intermediate_results
     except Exception as e:
         print(e)
 
@@ -230,32 +232,25 @@ def get_datasets():
 
 
 def get_experiments_results():
-    with open('experiments.json') as json_data_file:
-        print(ctime(), 'Starting to run experiments')
-        experiments = json.load(json_data_file)
-        output = mp.Queue()
-        processes = []
-        for dataset in preprocess():
-            p = mp.Process(target=run_experiments, args=(output, dataset, experiments))
-            processes.append(p)
-        for p in processes:
-            p.start()
-        results = [output.get() for _ in processes]
-        print(ctime(), 'Finished running all experiments')
-        data = {}
-        column_names = []
-        first_iteration_only = True
-        for process_results in results:
-            for dataset_name, results in process_results.items():
-                accuracies = []
-                for result in results:
-                    if first_iteration_only:
-                        column_names.append(result[0])
-                    accuracies.append(result[1])
-                first_iteration_only = False
-                data[dataset_name] = accuracies
-        result_df = pd.DataFrame.from_dict(data, orient='index', columns=column_names)
-        return result_df, write_results_to_csv(result_df)
+    print(ctime(), 'Starting to run experiments')
+    pool = mp.Pool(mp.cpu_count())
+    results = pool.map(run_experiments, [dataset for dataset in preprocess()])
+    pool.close()
+    print(ctime(), 'Finished running all experiments')
+    data = {}
+    column_names = []
+    first_iteration_only = True
+    for process_results in results:
+        for dataset_name, results in process_results.items():
+            accuracies = []
+            for result in results:
+                if first_iteration_only:
+                    column_names.append(result[0])
+                accuracies.append(result[1])
+            first_iteration_only = False
+            data[dataset_name] = accuracies
+    result_df = pd.DataFrame.from_dict(data, orient='index', columns=column_names)
+    return result_df, write_results_to_csv(result_df)
 
 
 def summarize_results(results_df):
