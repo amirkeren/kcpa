@@ -15,6 +15,7 @@ from normalization import normalize, Normalization
 from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
+import datetime
 import pandas as pd
 import numpy as np
 import multiprocessing as mp
@@ -177,6 +178,10 @@ def run_experiments(dataset):
                     classifier_config = experiment_config[0]
                     if bool(util.strtobool(classifier_config['ensemble'])):
                         count += 1
+                        intermediate_results.setdefault(dataset_name, []).append(
+                            (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                                  DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
+                                                  kernels), -1))
                         continue
                     components_str = experiment_config[1]
                     kernels_num = experiment_config[2]
@@ -213,6 +218,10 @@ def run_experiments(dataset):
                                                DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD))
             except Exception as e:
                 print("Failed to run experiment", experiment_name, "with exception", e)
+                intermediate_results.setdefault(dataset_name, []).append(
+                    (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
+                                          kernels), -1))
                 count += 1
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
         return intermediate_results
@@ -319,6 +328,7 @@ if __name__ == '__main__':
     send_summary_email = True
     for arg in sys.argv[1:]:
         input_file = arg
+    start = datetime.datetime.now()
     if input_file:
         send_summary_email = False
         input_file = 'results/' + input_file
@@ -330,6 +340,8 @@ if __name__ == '__main__':
             df, input_file = get_experiments_results()
     else:
         df, input_file = get_experiments_results()
+    difference = datetime.datetime.now() - start
+    print("Total run time is", divmod(difference.total_seconds(), 60))
     stat_results = run_statistical_analysis(df)
     print(stat_results)
     config = configparser.RawConfigParser()
