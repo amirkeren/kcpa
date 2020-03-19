@@ -33,8 +33,8 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = True
+RUN_ON_LARGE_DATASETS = True
+SEND_EMAIL = False
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
@@ -178,10 +178,6 @@ def run_experiments(dataset):
                     classifier_config = experiment_config[0]
                     if bool(util.strtobool(classifier_config['ensemble'])):
                         count += 1
-                        intermediate_results.setdefault(dataset_name, []).append(
-                            (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                  DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
-                                                  kernels), -1))
                         continue
                     components_str = experiment_config[1]
                     kernels_num = experiment_config[2]
@@ -218,10 +214,6 @@ def run_experiments(dataset):
                                                DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD))
             except Exception as e:
                 print("Failed to run experiment", experiment_name, "with exception", e)
-                intermediate_results.setdefault(dataset_name, []).append(
-                    (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
-                                          kernels), -1))
                 count += 1
         print(ctime(), 'Finished running experiments on dataset', dataset_name)
         return intermediate_results
