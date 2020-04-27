@@ -2,10 +2,10 @@ import numpy as np
 from scipy import linalg
 from functools import reduce
 from scipy.sparse.linalg import eigsh
+from normalization import Normalization, normalize
 
 from sklearn.utils import check_random_state
 from sklearn.utils.extmath import svd_flip
-# from sklearn.utils.validation import check_is_fitted, check_array, _check_psd_eigenvalues
 from sklearn.utils import validation
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import KernelCenterer
@@ -13,10 +13,12 @@ from sklearn.metrics.pairwise import pairwise_kernels
 
 
 class KernelPCA(TransformerMixin, BaseEstimator):
-    def __init__(self, n_components, kernel_params, kernel_combine, n_jobs=None):
+    def __init__(self, n_components, kernel_params, kernel_combine, alpha, normalization_method, n_jobs=None):
         self.kernel_params = kernel_params
         self.kernel_combine = kernel_combine
         self.n_components = n_components
+        self.alpha = alpha
+        self.normalization_method = normalization_method
         self.n_jobs = n_jobs
 
     @property
@@ -30,10 +32,11 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         if len(kernels) == 1 or self.kernel_combine is None:
             return kernels[0]
         if self.kernel_combine == '+':
+            if self.alpha:
+                return reduce((lambda x, y: self.alpha * normalize(x, self.normalization_method) +
+                                            (1 - self.alpha) * normalize(y, self.normalization_method)), kernels)
             return reduce((lambda x, y: x + y), kernels)
         return reduce((lambda x, y: x * y), kernels)
-
-
 
     def _fit_transform(self, K):
         K = self._centerer.fit_transform(K)

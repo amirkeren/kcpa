@@ -33,6 +33,8 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
+CAP_DATASETS_AT = 100
+RUN_PARALLEL = True
 RUN_ON_LARGE_DATASETS = True
 SEND_EMAIL = False
 DATASETS_FOLDER = 'datasets'
@@ -184,7 +186,8 @@ def run_experiments(dataset):
                     components_num = components_str if isinstance(components_str, int) else \
                         round(X.shape[1] * float(components_str[:-1]))
                     kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
-                                      max_euclid_distances) for _ in itertools.repeat(None, kernels_num)]
+                                      max_euclid_distances, normalization_method=DEFAULT_NORMALIZATION_METHOD)
+                               for _ in itertools.repeat(None, kernels_num)]
                     splits, splits_copy = itertools.tee(splits)
                     if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
                         kernels = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
@@ -231,7 +234,7 @@ def get_datasets():
 
 def get_experiments_results():
     print(ctime(), 'Starting to run experiments')
-    pool = mp.Pool(mp.cpu_count())
+    pool = mp.Pool(mp.cpu_count()) if RUN_PARALLEL else 1
     results = pool.map(run_experiments, [dataset for dataset in preprocess()])
     pool.close()
     print(ctime(), 'Finished running all experiments')
@@ -303,9 +306,11 @@ def run_statistical_analysis(results_df):
     return results_string
 
 
-def preprocess(normalization_method=DEFAULT_NORMALIZATION_METHOD):
+def preprocess(normalization_method=DEFAULT_NORMALIZATION_METHOD, cap=CAP_DATASETS_AT):
     datasets = []
     for (name, dataset) in get_datasets():
+        if 0 < cap < len(dataset.index):
+            dataset = dataset.sample(cap, random_state=0)
         dataset.fillna(dataset.mean(), inplace=True)
         features = dataset.iloc[:, :-1]
         scaled_features = normalize(features.values, normalization_method)

@@ -1,4 +1,5 @@
 from kernel_pca import KernelPCA
+from normalization import Normalization
 import numpy as np
 import random
 import re
@@ -12,21 +13,26 @@ DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
 
 
 class Kernel:
-    def __init__(self, kernel_config, components_num, avg_euclidean_distances, max_euclidean_distances):
+    def __init__(self, kernel_config, components_num, avg_euclidean_distances, max_euclidean_distances,
+                 normalization_method):
         self.kernel_params = {}
         self.avg_euclidean_distances = avg_euclidean_distances
         self.max_euclidean_distances = max_euclidean_distances
         self.kernel_combine = None
+        self.alpha = None
+        self.normalization_method = normalization_method
         self.n_components = components_num
         self.kernel_name = kernel_config['name']
         if '+' in self.kernel_name:
             self.kernel_combine = '+'
+            self.alpha = random.uniform(0, 1)
         elif '*' in self.kernel_name:
             self.kernel_combine = '*'
         for kernel_name in re.split('[*+]', kernel_config['name']):
             self._generate_kernel(kernel_config, kernel_name)
         self.kernel = KernelPCA(n_components=self.n_components, kernel_params=self.kernel_params,
-                                kernel_combine=self.kernel_combine)
+                                kernel_combine=self.kernel_combine, alpha=self.alpha,
+                                normalization_method=self.normalization_method)
 
     def _generate_kernel(self, kernel_config, kernel_name):
         kernel_inner_params = {
