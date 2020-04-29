@@ -295,32 +295,53 @@ def summarize_results(results_df):
                 best_experiment = experiment
         summary_results[key]['best_experiment'] = best_experiment
         del summary_results[key]['experiments_accuracy']
+    overall_best_experiment_accuracy = -1
+    overall_best_experiment = {}
+    for key, value in summary_results.items():
+        if value['best_experiment']['accuracy'] > overall_best_experiment_accuracy:
+            overall_best_experiment_accuracy = value['best_experiment']['accuracy']
+            overall_best_experiment = value['best_experiment']
+    for key in list(summary_results):
+        if not is_ensemble_classifier(key):
+            del summary_results[key]
+    summary_results['best_experiment'] = overall_best_experiment
     return summary_results
 
 
 def run_statistical_analysis(results_df):
     print_info('Run statistical analysis on results')
     summarized_results = summarize_results(results_df)
-    results_string = ''
+    best_experiment = summarized_results['best_experiment']
+    results_string = 'Best experiment is - ' + str(best_experiment['experiment']) + '\n'
     for key, value in summarized_results.items():
-        if is_ensemble_classifier(key):
+        if key == 'best_experiment':
             continue
-        baseline = value['baseline_results']
-        experiment = value['best_experiment']['experiment_results']
-        baseline_mean = value['baseline_accuracy']
-        experiment_mean = value['best_experiment']['accuracy']
-        results_string += key + '\n'
-        if baseline_mean > experiment_mean:
-            results_string += 'Baseline wins: ' + str(baseline_mean) + ' > ' + str(experiment_mean) + '\n'
-        else:
-            results_string += 'Experiment wins: ' + str(experiment_mean) + ' > ' + str(baseline_mean) + '\n'
-        results_string += 'Best experiment: ' + str(value['best_experiment']['experiment']) + '\n'
-        t, p = stats.ttest_ind(baseline, experiment)
-        results_string += 'T-Test: t = ' + str(round(t, ACCURACY_FLOATING_POINT)) + ', p = ' + \
-                          str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
-        stat, p = stats.wilcoxon(baseline, experiment)
-        results_string += 'Wilcoxon: s = ' + str(stat) + ', p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
-        results_string += '\n'
+        results_string += 'Best experiment vs. ' + key + '\n'
+        results_string += compare_experiments(best_experiment, value, key) + '\n'
+    return results_string
+
+
+def compare_experiments(experiment, baseline, baseline_name):
+    results_string = ''
+    if experiment['accuracy'] >= baseline['baseline_accuracy']:
+        baseline_results = baseline['baseline_results']
+        experiment_results = experiment['experiment_results']
+        results_string += 'Experiment wins: ' + str(experiment['accuracy']) + ' >= ' + \
+                          str(baseline['baseline_accuracy']) + '\n'
+        try:
+            t, p = stats.ttest_ind(baseline_results, experiment_results)
+            results_string += 'T-Test: t = ' + str(round(t, ACCURACY_FLOATING_POINT)) + ', p = ' + \
+                              str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
+        except Exception as e:
+            results_string += 'Failed to run t-test - ' + str(e) + '\n'
+        try:
+            stat, p = stats.wilcoxon(baseline_results, baseline_results)
+            results_string += 'Wilcoxon: s = ' + str(stat) + ', p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
+        except Exception as e:
+            results_string += 'Failed to run Wilcoxon test - ' + str(e) + '\n'
+    else:
+        results_string += baseline_name + ' wins: ' + str(baseline['baseline_accuracy']) + ' > ' + \
+                          str(experiment['accuracy']) + '\n'
     return results_string
 
 
@@ -353,7 +374,7 @@ if __name__ == '__main__':
         input_file = 'results/' + input_file
         if isfile(input_file):
             print_info('Results file found')
-            df = pd.read_csv(input_file)
+            df = pd.read_csv(input_file, index_col=0)
         else:
             print_info('Results file ' + input_file.split('/')[1] + ' not found')
             df, input_file = get_experiments_results()
