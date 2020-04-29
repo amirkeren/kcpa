@@ -5,7 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from enum import Enum
-from os import listdir, makedirs
+from os import listdir, makedirs, remove
 from os.path import isfile, join, exists
 from kernel import Kernel
 from classifiers_manager import get_classifier, CLASSIFIERS, is_ensemble_classifier
@@ -33,10 +33,12 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-CAP_DATASETS_AT = 100
+CAP_DATASETS_AT = -1
 RUN_PARALLEL = True
 RUN_ON_LARGE_DATASETS = False
 SEND_EMAIL = False
+PRINT_TO_STDOUT = False
+LOGFILE_NAME = 'output.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
@@ -50,8 +52,14 @@ DEFAULT_NUMBER_OF_KERNELS = [20]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
 
 
+def print_info(message, print_to_stdout=PRINT_TO_STDOUT):
+    if print_to_stdout:
+        print(ctime(), message)
+    log_file.write(ctime() + ' ' + message + '\n')
+
+
 def send_email(user, pwd, recipient, subject, body, file):
-    print('Sending summary email')
+    print_info('Sending summary email')
     to = recipient if type(recipient) is list else [recipient]
     msg = MIMEMultipart()
     msg['From'] = user
@@ -70,7 +78,7 @@ def send_email(user, pwd, recipient, subject, body, file):
     server.login(user, pwd)
     server.sendmail(user, to, msg.as_string())
     server.quit()
-    print('Summary email sent')
+    print_info('Summary email sent')
 
 
 def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None,
@@ -159,8 +167,10 @@ def choose_best_kernels(kernels_and_evaluations, method):
 def run_experiments(dataset):
         with open('experiments.json') as json_data_file:
             experiments = json.load(json_data_file)
+        global log_file
+        log_file = open(LOGFILE_NAME, 'a')
         dataset_name = dataset[0].split('\\')[1]
-        print(ctime(), 'Starting to run experiments on dataset', dataset_name)
+        print_info('Starting to run experiments on dataset ' + dataset_name)
         total_number_of_experiments = get_total_number_of_experiments(experiments)
         dataframe = dataset[1]
         dataframe = dataframe.fillna(dataframe.mean())
@@ -175,9 +185,9 @@ def run_experiments(dataset):
         intermediate_results = run_baseline(dataset_name, X, y, splits_copy)
         count = 0
         for experiment_name, experiment_params in experiments.items():
-            try:
-                print(ctime(), 'Starting to run experiments', experiment_name, 'on', dataset_name)
-                for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
+            print_info('Starting to run experiments ' + experiment_name + ' on ' + dataset_name)
+            for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
+                try:
                     classifier_config = experiment_config[0]
                     if bool(util.strtobool(classifier_config['ensemble'])):
                         count += 1
@@ -214,13 +224,19 @@ def run_experiments(dataset):
                                               DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
                                               kernels), accuracy))
                     count += 1
-                    print(ctime(), '{0:.1%}'.format(float(count) / total_number_of_experiments), dataset_name,
-                          build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                               DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD))
-            except Exception as e:
-                print("Failed to run experiment", experiment_name, "with exception", e)
-                count += 1
-        print(ctime(), 'Finished running experiments on dataset', dataset_name)
+                    str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                               DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD)
+                    print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
+                          ' ' + str_to_print)
+                except Exception as e:
+                    print_info('Failed to run experiment ' + experiment_name + ' with exception ' + str(e))
+                    count += 1
+                    intermediate_results.setdefault(dataset_name, []).append(
+                        (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
+                                              kernels), -1))
+            print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
+        print_info('Finished running experiments on dataset ' + dataset_name)
         return intermediate_results
 
 
@@ -235,11 +251,11 @@ def get_datasets():
 
 
 def get_experiments_results():
-    print(ctime(), 'Starting to run experiments')
-    pool = mp.Pool(mp.cpu_count()) if RUN_PARALLEL else 1
+    print_info('Starting to run experiments')
+    pool = mp.Pool(mp.cpu_count()) if RUN_PARALLEL else mp.Pool(1)
     results = pool.map(run_experiments, [dataset for dataset in preprocess()])
     pool.close()
-    print(ctime(), 'Finished running all experiments')
+    print_info('Finished running all experiments')
     data = {}
     column_names = []
     first_iteration_only = True
@@ -283,7 +299,7 @@ def summarize_results(results_df):
 
 
 def run_statistical_analysis(results_df):
-    print('Run statistical analysis on results')
+    print_info('Run statistical analysis on results')
     summarized_results = summarize_results(results_df)
     results_string = ''
     for key, value in summarized_results.items():
@@ -322,6 +338,10 @@ def preprocess(normalization_method=DEFAULT_NORMALIZATION_METHOD_PREPROCESS, cap
 
 
 if __name__ == '__main__':
+    if isfile(LOGFILE_NAME):
+        remove(LOGFILE_NAME)
+    global log_file
+    log_file = open(LOGFILE_NAME, 'a')
     input_file = None
     df = None
     send_summary_email = True
@@ -332,19 +352,20 @@ if __name__ == '__main__':
         send_summary_email = False
         input_file = 'results/' + input_file
         if isfile(input_file):
-            print('Results file found')
+            print_info('Results file found')
             df = pd.read_csv(input_file)
         else:
-            print('Results file', input_file.split('/')[1], 'not found')
+            print_info('Results file ' + input_file.split('/')[1] + ' not found')
             df, input_file = get_experiments_results()
     else:
         df, input_file = get_experiments_results()
     difference = datetime.datetime.now() - start
-    print("Total run time is", divmod(difference.total_seconds(), 60))
+    print_info('Total run time is ' + str(difference))
     stat_results = run_statistical_analysis(df)
-    print(stat_results)
+    print_info(stat_results)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
     if send_summary_email and SEND_EMAIL:
         send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
                    'ak091283@gmail.com', 'Finished Running', stat_results, input_file)
+    log_file.close()
