@@ -234,7 +234,7 @@ def run_experiments(dataset):
                     intermediate_results.setdefault(dataset_name, []).append(
                         (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                               DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
-                                              kernels), -1))
+                                              kernels), -100))
             print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
         print_info('Finished running experiments on dataset ' + dataset_name)
         return intermediate_results
