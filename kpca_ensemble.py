@@ -35,7 +35,7 @@ class CandidationMethod(Enum):
 
 CAP_DATASETS_AT = 100
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
+RUN_ON_LARGE_DATASETS = False
 SEND_EMAIL = False
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
@@ -44,7 +44,8 @@ ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
 DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST
-DEFAULT_NORMALIZATION_METHOD = Normalization.STANDARD
+DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
+DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 DEFAULT_NUMBER_OF_KERNELS = [20]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
 
@@ -186,7 +187,8 @@ def run_experiments(dataset):
                     components_num = components_str if isinstance(components_str, int) else \
                         round(X.shape[1] * float(components_str[:-1]))
                     kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
-                                      max_euclid_distances, normalization_method=DEFAULT_NORMALIZATION_METHOD)
+                                      max_euclid_distances,
+                                      normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE)
                                for _ in itertools.repeat(None, kernels_num)]
                     splits, splits_copy = itertools.tee(splits)
                     if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
@@ -306,7 +308,7 @@ def run_statistical_analysis(results_df):
     return results_string
 
 
-def preprocess(normalization_method=DEFAULT_NORMALIZATION_METHOD, cap=CAP_DATASETS_AT):
+def preprocess(normalization_method=DEFAULT_NORMALIZATION_METHOD_PREPROCESS, cap=CAP_DATASETS_AT):
     datasets = []
     for (name, dataset) in get_datasets():
         if 0 < cap < len(dataset.index):
