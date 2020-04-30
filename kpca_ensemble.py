@@ -312,11 +312,11 @@ def run_statistical_analysis(results_df):
     print_info('Run statistical analysis on results')
     summarized_results = summarize_results(results_df)
     best_experiment = summarized_results['best_experiment']
-    results_string = '\n\nBest experiment is - ' + str(best_experiment['experiment']) + '\n'
+    results_string = 'Best experiment is - ' + str(best_experiment['experiment']) + '\n'
     for key, value in summarized_results.items():
         if key == 'best_experiment':
             continue
-        results_string += 'Best experiment vs. ' + key + '\n'
+        results_string += '\nBest experiment vs. ' + key + '\n'
         results_string += compare_experiments(best_experiment, value, key) + '\n'
     return results_string
 
