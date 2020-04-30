@@ -15,6 +15,7 @@ from normalization import normalize, Normalization
 from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
+from pathlib import Path
 import datetime
 import pandas as pd
 import numpy as np
@@ -362,6 +363,7 @@ if __name__ == '__main__':
     if isfile(LOGFILE_NAME):
         remove(LOGFILE_NAME)
     global log_file
+    Path('logs').mkdir(parents=True, exist_ok=True)
     log_file = open(LOGFILE_NAME, 'a')
     input_file = None
     df = None
