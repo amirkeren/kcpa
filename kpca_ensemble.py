@@ -34,9 +34,9 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-CAP_DATASETS_AT = -1
+CAP_DATASETS_AT = 1000
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = False
+RUN_ON_LARGE_DATASETS = True
 SEND_EMAIL = True
 PRINT_TO_STDOUT = False
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
