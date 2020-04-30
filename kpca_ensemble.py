@@ -36,9 +36,9 @@ class CandidationMethod(Enum):
 CAP_DATASETS_AT = -1
 RUN_PARALLEL = True
 RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = False
+SEND_EMAIL = True
 PRINT_TO_STDOUT = False
-LOGFILE_NAME = 'output.log'
+LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
@@ -312,7 +312,7 @@ def run_statistical_analysis(results_df):
     print_info('Run statistical analysis on results')
     summarized_results = summarize_results(results_df)
     best_experiment = summarized_results['best_experiment']
-    results_string = 'Best experiment is - ' + str(best_experiment['experiment']) + '\n'
+    results_string = '\n\nBest experiment is - ' + str(best_experiment['experiment']) + '\n'
     for key, value in summarized_results.items():
         if key == 'best_experiment':
             continue
@@ -388,5 +388,6 @@ if __name__ == '__main__':
     config.read('ConfigFile.properties')
     if send_summary_email and SEND_EMAIL:
         send_email(config.get('EmailSection', 'email.user'), config.get('EmailSection', 'email.password'),
-                   'ak091283@gmail.com', 'Finished Running', stat_results, input_file)
+                   'ak091283@gmail.com', 'Finished Running', 'Total run time is ' + str(difference) + '\n\n' +
+                   stat_results, input_file)
     log_file.close()

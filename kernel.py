@@ -1,5 +1,4 @@
 from kernel_pca import KernelPCA
-from normalization import Normalization
 import numpy as np
 import random
 import re
@@ -40,6 +39,8 @@ class Kernel:
             "coef0": 1,
             "degree": 3
         }
+        if self.alpha:
+            kernel_inner_params['alpha'] = self.alpha
         if kernel_name == 'linear':
             pass
         elif kernel_name == 'poly':
