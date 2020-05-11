@@ -1,8 +1,7 @@
 import numpy as np
-from scipy import linalg
 from functools import reduce
 from scipy.sparse.linalg import eigsh
-from normalization import Normalization, normalize
+from normalization import normalize
 
 from sklearn.utils import check_random_state
 from sklearn.utils.extmath import svd_flip
@@ -44,17 +43,9 @@ class KernelPCA(TransformerMixin, BaseEstimator):
             n_components = K.shape[0]
         else:
             n_components = min(K.shape[0], self.n_components)
-        if K.shape[0] > 200 and n_components < 10:
-            eigen_solver = 'arpack'
-        else:
-            eigen_solver = 'dense'
-        if eigen_solver == 'dense':
-            self.lambdas_, self.alphas_ = linalg.eigh(
-                K, eigvals=(K.shape[0] - n_components, K.shape[0] - 1))
-        elif eigen_solver == 'arpack':
-            random_state = check_random_state(None)
-            v0 = random_state.uniform(-1, 1, K.shape[0])
-            self.lambdas_, self.alphas_ = eigsh(K, n_components, which="LA", tol=0, maxiter=None, v0=v0)
+        random_state = check_random_state(None)
+        v0 = random_state.uniform(-1, 1, K.shape[0])
+        self.lambdas_, self.alphas_ = eigsh(K, n_components, which="LA", tol=0, maxiter=None, v0=v0)
         self.lambdas_ = validation._check_psd_eigenvalues(self.lambdas_, enable_warnings=False)
         self.alphas_, _ = svd_flip(self.alphas_, np.empty_like(self.alphas_).T)
         indices = self.lambdas_.argsort()[::-1]
