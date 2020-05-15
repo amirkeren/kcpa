@@ -78,5 +78,50 @@
     "kernel": {
       "name": "poly*rbf"
     }
+  },
+  "spd": {
+    "kernel": {
+      "name": "spd"
+    }
+  },
+  "poly_mul_spd": {
+    "kernel": {
+      "name": "poly*spd"
+    }
+  },
+  "rbf_mul_spd": {
+    "kernel": {
+      "name": "rbf*spd"
+    }
+  },
+  "sigmoid_mul_spd": {
+    "kernel": {
+      "name": "sigmoid*spd"
+    }
+  },
+  "laplacian_mul_spd": {
+    "kernel": {
+      "name": "laplacian*spd"
+    }
+  },
+  "laplacian_add_spd": {
+    "kernel": {
+      "name": "laplacian+spd"
+    }
+  },
+  "sigmoid_add_spd": {
+    "kernel": {
+      "name": "sigmoid+spd"
+    }
+  },
+  "rbf_add_spd": {
+    "kernel": {
+      "name": "rbf+spd"
+    }
+  },
+  "poly_add_spd": {
+    "kernel": {
+      "name": "poly+spd"
+    }
   }
 }
