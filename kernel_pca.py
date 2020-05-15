@@ -8,7 +8,7 @@ from sklearn.utils.extmath import svd_flip
 from sklearn.utils import validation
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import KernelCenterer
-from sklearn.metrics.pairwise import pairwise_kernels
+from pairwise import pairwise_kernels
 
 
 class KernelPCA(TransformerMixin, BaseEstimator):

@@ -41,7 +41,7 @@ class Kernel:
         }
         if self.alpha:
             kernel_inner_params['alpha'] = self.alpha
-        if kernel_name == 'linear':
+        if kernel_name in ('linear', 'spd'):
             pass
         elif kernel_name == 'poly':
             gamma_range = kernel_config['poly_gamma'] if 'poly_gamma' in kernel_config else DEFAULT_GAMMA_RANGE
