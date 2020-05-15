@@ -34,7 +34,7 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-CAP_DATASETS_AT = 1000
+CAP_DATASETS_AT = -1
 RUN_PARALLEL = True
 RUN_ON_LARGE_DATASETS = True
 SEND_EMAIL = True
