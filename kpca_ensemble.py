@@ -26,6 +26,7 @@ import itertools
 import smtplib
 import configparser
 import math
+import random
 
 
 class CandidationMethod(Enum):
@@ -39,6 +40,7 @@ RUN_PARALLEL = True
 RUN_ON_LARGE_DATASETS = True
 SEND_EMAIL = True
 PRINT_TO_STDOUT = False
+PROVIDE_SEED = False
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
@@ -49,6 +51,7 @@ DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST
 DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
+# grid searchable
 DEFAULT_NUMBER_OF_KERNELS = [20]
 DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
 
@@ -197,9 +200,12 @@ def run_experiments(dataset):
                     kernels_num = experiment_config[2]
                     components_num = components_str if isinstance(components_str, int) else \
                         round(X.shape[1] * float(components_str[:-1]))
+                    if PROVIDE_SEED:
+                        random.seed(30)
                     kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
                                       max_euclid_distances,
-                                      normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE)
+                                      normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                      random=random)
                                for _ in itertools.repeat(None, kernels_num)]
                     splits, splits_copy = itertools.tee(splits)
                     if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:

@@ -1,6 +1,5 @@
 from kernel_pca import KernelPCA
 import numpy as np
-import random
 import re
 
 DEFAULT_RANDOM_DISTRIBUTION_SIZE = 10
@@ -13,7 +12,7 @@ DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
 
 class Kernel:
     def __init__(self, kernel_config, components_num, avg_euclidean_distances, max_euclidean_distances,
-                 normalization_method):
+                 normalization_method, random):
         self.kernel_params = {}
         self.avg_euclidean_distances = avg_euclidean_distances
         self.max_euclidean_distances = max_euclidean_distances
@@ -28,12 +27,12 @@ class Kernel:
         elif '*' in self.kernel_name:
             self.kernel_combine = '*'
         for kernel_name in re.split('[*+]', kernel_config['name']):
-            self._generate_kernel(kernel_config, kernel_name)
+            self._generate_kernel(kernel_config, kernel_name, random)
         self.kernel = KernelPCA(n_components=self.n_components, kernel_params=self.kernel_params,
                                 kernel_combine=self.kernel_combine, alpha=self.alpha,
                                 normalization_method=self.normalization_method)
 
-    def _generate_kernel(self, kernel_config, kernel_name):
+    def _generate_kernel(self, kernel_config, kernel_name, random):
         kernel_inner_params = {
             "gamma": None,
             "coef0": 1,
@@ -52,8 +51,7 @@ class Kernel:
         elif kernel_name == 'sigmoid':
             distribution_size = kernel_config['distribution_size'] if 'distribution_size' in kernel_config else \
                 DEFAULT_RANDOM_DISTRIBUTION_SIZE
-            random_distribution = np.random.uniform(size=distribution_size)
-            avg_random_distribution = np.mean(random_distribution)
+            avg_random_distribution = np.mean([random.uniform(0, 1) for _ in range(distribution_size)])
             exp = kernel_config['sig_exp'] if 'sig_exp' in kernel_config else DEFAULT_EXPONENT
             gamma = kernel_config['sig_gamma'] if 'sig_gamma' in kernel_config else 1 / (avg_random_distribution ** exp)
             sig_coef = kernel_config['sig_coef'] if 'sig_coef' in kernel_config else DEFAULT_SIGMOID_COEFFICIENT_RANGE
@@ -62,15 +60,14 @@ class Kernel:
             kernel_inner_params['coef0'] = coef0
         elif kernel_name == 'rbf':
             rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
-            r = np.random.uniform(rbf_r[0], rbf_r[1])
+            r = random.uniform(rbf_r[0], rbf_r[1])
             gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config \
                 else 1 / (self.avg_euclidean_distances ** r)
             kernel_inner_params['gamma'] = gamma
         elif kernel_name == 'laplacian':
             distribution_size = kernel_config['distribution_size'] if 'distribution_size' in kernel_config else \
                 DEFAULT_RANDOM_DISTRIBUTION_SIZE
-            random_distribution = np.random.uniform(size=distribution_size)
-            avg_random_distribution = np.mean(random_distribution)
+            avg_random_distribution = np.mean([random.uniform(0, 1) for _ in range(distribution_size)])
             exp = kernel_config['lap_exp'] if 'lap_exp' in kernel_config else DEFAULT_EXPONENT
             gamma = kernel_config['lap_gamma'] if 'lap_gamma' in kernel_config else 1 / (avg_random_distribution ** exp)
             kernel_inner_params['gamma'] = gamma
