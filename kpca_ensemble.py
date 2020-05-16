@@ -385,7 +385,7 @@ if __name__ == '__main__':
     difference = datetime.datetime.now() - start
     print_info('Total run time is ' + str(difference))
     stat_results = run_statistical_analysis(df)
-    print_info(stat_results)
+    print_info(stat_results, print_to_stdout=True)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
     if send_summary_email and SEND_EMAIL:
