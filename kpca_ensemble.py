@@ -336,7 +336,7 @@ def compare_experiments(experiment, baseline, baseline_name):
         except Exception as e:
             results_string += 'Failed to run t-test - ' + str(e) + '\n'
         try:
-            stat, p = stats.wilcoxon(baseline_results, baseline_results)
+            stat, p = stats.wilcoxon(baseline_results, experiment_results)
             results_string += 'Wilcoxon: s = ' + str(stat) + ', p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
         except Exception as e:
             results_string += 'Failed to run Wilcoxon test - ' + str(e) + '\n'
