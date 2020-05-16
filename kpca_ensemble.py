@@ -233,8 +233,9 @@ def run_experiments(dataset):
                     count += 1
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                                DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD)
-                    print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
-                          ' ' + str_to_print)
+                    if PRINT_TO_STDOUT:
+                        print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
+                            ' ' + str_to_print)
                 except Exception as e:
                     print_info('Failed to run experiment ' + experiment_name + ' with exception ' + str(e))
                     count += 1
