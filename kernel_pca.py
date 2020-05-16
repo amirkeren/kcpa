@@ -12,10 +12,9 @@ from pairwise import pairwise_kernels
 
 
 class KernelPCA(TransformerMixin, BaseEstimator):
-    def __init__(self, n_components, kernel_params, kernel_combine, alpha, normalization_method, n_jobs=None):
+    def __init__(self, kernel_params, kernel_combine, alpha, normalization_method, n_jobs=None):
         self.kernel_params = kernel_params
         self.kernel_combine = kernel_combine
-        self.n_components = n_components
         self.alpha = alpha
         self.normalization_method = normalization_method
         self.n_jobs = n_jobs
@@ -37,12 +36,12 @@ class KernelPCA(TransformerMixin, BaseEstimator):
             return reduce((lambda x, y: x + y), kernels)
         return reduce((lambda x, y: x * y), kernels)
 
-    def _fit_transform(self, K):
+    def _fit_transform(self, K, n_components):
         K = self._centerer.fit_transform(K)
-        if self.n_components is None:
+        if n_components is None:
             n_components = K.shape[0]
         else:
-            n_components = min(K.shape[0], self.n_components)
+            n_components = min(K.shape[0], n_components)
         random_state = check_random_state(None)
         v0 = random_state.uniform(-1, 1, K.shape[0])
         self.lambdas_, self.alphas_ = eigsh(K, n_components, which="LA", tol=0, maxiter=None, v0=v0)
@@ -53,16 +52,16 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         self.alphas_ = self.alphas_[:, indices]
         return K
 
-    def fit(self, X):
+    def fit(self, X, n_components):
         X = validation.check_array(X, accept_sparse='csr', copy=False)
         self._centerer = KernelCenterer()
         K = self._get_kernel(X)
-        self._fit_transform(K)
+        self._fit_transform(K, n_components)
         self.X_fit_ = X
         return self
 
-    def fit_transform(self, X):
-        self.fit(X)
+    def fit_transform(self, X, n_components):
+        self.fit(X, n_components)
         X_transformed = self.alphas_ * np.sqrt(self.lambdas_)
         return X_transformed
 

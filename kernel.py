@@ -11,15 +11,10 @@ DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
 
 
 class Kernel:
-    def __init__(self, kernel_config, components_num, avg_euclidean_distances, max_euclidean_distances,
-                 normalization_method, random):
+    def __init__(self, kernel_config, normalization_method, random):
         self.kernel_params = {}
-        self.avg_euclidean_distances = avg_euclidean_distances
-        self.max_euclidean_distances = max_euclidean_distances
         self.kernel_combine = None
         self.alpha = None
-        self.normalization_method = normalization_method
-        self.n_components = components_num
         self.kernel_name = kernel_config['name']
         if '+' in self.kernel_name:
             self.kernel_combine = '+'
@@ -28,9 +23,8 @@ class Kernel:
             self.kernel_combine = '*'
         for kernel_name in re.split('[*+]', kernel_config['name']):
             self._generate_kernel(kernel_config, kernel_name, random)
-        self.kernel = KernelPCA(n_components=self.n_components, kernel_params=self.kernel_params,
-                                kernel_combine=self.kernel_combine, alpha=self.alpha,
-                                normalization_method=self.normalization_method)
+        self.kernel = KernelPCA(kernel_params=self.kernel_params, kernel_combine=self.kernel_combine, alpha=self.alpha,
+                                normalization_method=normalization_method)
 
     def _generate_kernel(self, kernel_config, kernel_name, random):
         kernel_inner_params = {
@@ -62,7 +56,7 @@ class Kernel:
             rbf_r = kernel_config['rbf_r'] if 'rbf_r' in kernel_config else DEFAULT_R_RANGE
             r = random.uniform(rbf_r[0], rbf_r[1])
             gamma = kernel_config['rbf_gamma'] if 'rbf_gamma' in kernel_config \
-                else 1 / (self.avg_euclidean_distances ** r)
+                else 1 / (random.uniform(0, 5) ** r)
             kernel_inner_params['gamma'] = gamma
         elif kernel_name == 'laplacian':
             distribution_size = kernel_config['distribution_size'] if 'distribution_size' in kernel_config else \
@@ -75,11 +69,11 @@ class Kernel:
             raise NotImplementedError('Unsupported kernel')
         self.kernel_params[kernel_name] = kernel_inner_params
 
-    def calculate_kernel(self, x, is_test=False):
+    def calculate_kernel(self, x, n_components=None, is_test=False):
         if is_test:
             return self.kernel.transform(x)
         else:
-            return self.kernel.fit_transform(x)
+            return self.kernel.fit_transform(x, n_components)
 
     def to_string(self):
         return str(self.kernel_params)
