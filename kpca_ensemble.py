@@ -225,7 +225,7 @@ def run_experiment(experiment):
         except Exception as e:
             count += 1
             datasets_results[dataset_name] = -100
-            print_info('Failed to run experiment ' + experiment_name + ' on dataset ' + dataset_name +
+            print_info('Failed to run experiment ' + experiment_key + ' on dataset ' + dataset_name +
                        ' with exception ' + str(e))
             print_info('{0:.1%}'.format(float(count) / len(datasets)) + ' ' + experiment_name +
                        ' ' + experiment_key)
