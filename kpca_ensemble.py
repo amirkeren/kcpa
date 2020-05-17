@@ -188,6 +188,8 @@ def run_experiment(experiment):
         #                               DEFAULT_CANDIDATION_METHOD)
     experiment_key = build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                           DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD, kernels)
+    if classifier_config["ensemble"] == "True":
+        return {experiment_key: datasets_results}
     for dataset in datasets:
         try:
             dataset_name = dataset[0].split('\\')[1]
