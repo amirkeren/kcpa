@@ -45,7 +45,7 @@ LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
-ACCURACY_FLOATING_POINT = 5
+ACCURACY_FLOATING_POINT = 2
 KERNELS_TO_CHOOSE = 11
 DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST
@@ -228,8 +228,8 @@ def run_experiments(dataset):
                     accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                     intermediate_results.setdefault(dataset_name, []).append(
                         (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
-                                              kernels), accuracy))
+                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD),
+                         accuracy))
                     count += 1
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                                DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD)
@@ -241,8 +241,7 @@ def run_experiments(dataset):
                     count += 1
                     intermediate_results.setdefault(dataset_name, []).append(
                         (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD,
-                                              kernels), -100))
+                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD), -100))
             print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
         print_info('Finished running experiments on dataset ' + dataset_name)
         return intermediate_results
