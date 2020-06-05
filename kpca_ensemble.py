@@ -37,11 +37,11 @@ class CandidationMethod(Enum):
 
 CAP_DATASETS_AT = -1
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = False
-PRINT_TO_STDOUT = True
+RUN_ON_LARGE_DATASETS = True
+SEND_EMAIL = True
+PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
-USE_PRECALCULATED_PREDICTIONS = False
+USE_PRECALCULATED_PREDICTIONS = True
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'

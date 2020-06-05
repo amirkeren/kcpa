@@ -9,7 +9,7 @@ DEFAULT_R_RANGE = [1, 3]
 DEFAULT_EXPONENT = 5
 DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
 
-KERNELS = ['spd', 'poly', 'sigmoid', 'rbf', 'laplacian']
+KERNELS = ['spd', 'poly', 'sigmoid', 'rbf']
 
 
 class Kernel:

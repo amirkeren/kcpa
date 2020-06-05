@@ -4,11 +4,6 @@
       "name": "mix"
     }
   },
-  "laplacian": {
-    "kernel": {
-      "name": "laplacian"
-    }
-  },
   "sigmoid": {
     "kernel": {
       "name": "sigmoid"
@@ -24,21 +19,6 @@
       "name": "rbf"
     }
   },
-  "laplacian_add_sigmoid": {
-    "kernel": {
-      "name": "laplacian+sigmoid"
-    }
-  },
-  "laplacian_add_poly": {
-    "kernel": {
-      "name": "laplacian+poly"
-    }
-  },
-  "laplacian_add_rbf": {
-    "kernel": {
-      "name": "laplacian+rbf"
-    }
-  },
   "sigmoid_add_poly": {
     "kernel": {
       "name": "sigmoid+poly"
@@ -52,21 +32,6 @@
   "poly_add_rbf": {
     "kernel": {
       "name": "poly+rbf"
-    }
-  },
-  "laplacian_mul_sigmoid": {
-    "kernel": {
-      "name": "laplacian*sigmoid"
-    }
-  },
-  "laplacian_mul_poly": {
-    "kernel": {
-      "name": "laplacian*poly"
-    }
-  },
-  "laplacian_mul_rbf": {
-    "kernel": {
-      "name": "laplacian*rbf"
     }
   },
   "sigmoid_mul_poly": {
@@ -102,16 +67,6 @@
   "sigmoid_mul_spd": {
     "kernel": {
       "name": "sigmoid*spd"
-    }
-  },
-  "laplacian_mul_spd": {
-    "kernel": {
-      "name": "laplacian*spd"
-    }
-  },
-  "laplacian_add_spd": {
-    "kernel": {
-      "name": "laplacian+spd"
     }
   },
   "sigmoid_add_spd": {
