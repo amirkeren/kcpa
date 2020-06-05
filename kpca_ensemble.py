@@ -107,6 +107,8 @@ def write_results_to_csv(dataframe):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
     filename = RESULTS_FOLDER + '/results-' + current_time + '.csv'
+    mask = dataframe.ne(-100)
+    dataframe = dataframe.loc[mask.any(1), mask.any()]
     averages = dataframe.mean(axis=0)
     best_baseline_accuracy = best_experiment_accuracy = -1
     for index, value in averages.items():
