@@ -9,6 +9,8 @@ DEFAULT_R_RANGE = [1, 3]
 DEFAULT_EXPONENT = 5
 DEFAULT_SIGMOID_COEFFICIENT_RANGE = [-1, 0]
 
+KERNELS = ['spd', 'poly', 'sigmoid', 'rbf', 'laplacian']
+
 
 class Kernel:
     def __init__(self, kernel_config, components_num, avg_euclidean_distances, max_euclidean_distances,
@@ -20,13 +22,16 @@ class Kernel:
         self.alpha = None
         self.normalization_method = normalization_method
         self.n_components = components_num
-        self.kernel_name = kernel_config['name']
+        if kernel_config['name'] == 'mix':
+            self.kernel_name = random.choice(KERNELS)
+        else:
+            self.kernel_name = kernel_config['name']
         if '+' in self.kernel_name:
             self.kernel_combine = '+'
             self.alpha = random.uniform(0, 1)
         elif '*' in self.kernel_name:
             self.kernel_combine = '*'
-        for kernel_name in re.split('[*+]', kernel_config['name']):
+        for kernel_name in re.split('[*+]', self.kernel_name):
             self._generate_kernel(kernel_config, kernel_name, random)
         self.kernel = KernelPCA(n_components=self.n_components, kernel_params=self.kernel_params,
                                 kernel_combine=self.kernel_combine, alpha=self.alpha,

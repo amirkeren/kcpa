@@ -37,15 +37,15 @@ class CandidationMethod(Enum):
 
 CAP_DATASETS_AT = -1
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
-SEND_EMAIL = True
+RUN_ON_LARGE_DATASETS = False
+SEND_EMAIL = False
 PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
 RESULTS_FOLDER = 'results'
-ACCURACY_FLOATING_POINT = 2
+ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
 DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST
@@ -123,8 +123,9 @@ def get_experiment_parameters(experiment_params):
 def get_total_number_of_experiments(experiments):
     count = 0
     for _, experiment_params in experiments.items():
-        for _ in itertools.product(*get_experiment_parameters(experiment_params)):
-            count += 1
+        for classifier_config in itertools.product(*get_experiment_parameters(experiment_params)):
+            if not bool(util.strtobool(classifier_config[0]['ensemble'])):
+                count += 1
     return count
 
 
@@ -169,82 +170,87 @@ def choose_best_kernels(kernels_and_evaluations, method):
 
 
 def run_experiments(dataset):
-        with open('experiments.json') as json_data_file:
-            experiments = json.load(json_data_file)
-        global log_file
-        log_file = open(LOGFILE_NAME, 'a')
-        dataset_name = dataset[0].split('\\')[1]
-        print_info('Starting to run experiments on dataset ' + dataset_name)
-        total_number_of_experiments = get_total_number_of_experiments(experiments)
-        dataframe = dataset[1]
-        dataframe = dataframe.fillna(dataframe.mean())
-        X = dataframe.iloc[:, :-1]
-        euclid_distances = euclidean_distances(X, X)
-        avg_euclid_distances = np.average(euclid_distances)
-        max_euclid_distances = np.max(euclid_distances)
-        y = dataframe.iloc[:, -1]
-        splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
-                                         n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1, random_state=0).split(X, y)
-        splits, splits_copy = itertools.tee(splits)
-        intermediate_results = run_baseline(dataset_name, X, y, splits_copy)
-        count = 0
-        for experiment_name, experiment_params in experiments.items():
-            print_info('Starting to run experiments ' + experiment_name + ' on ' + dataset_name)
-            for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
-                try:
-                    classifier_config = experiment_config[0]
-                    if bool(util.strtobool(classifier_config['ensemble'])):
-                        count += 1
-                        continue
-                    components_str = experiment_config[1]
-                    kernels_num = experiment_config[2]
-                    components_num = components_str if isinstance(components_str, int) else \
-                        round(X.shape[1] * float(components_str[:-1]))
-                    if PROVIDE_SEED:
-                        random.seed(30)
-                    kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
-                                      max_euclid_distances,
-                                      normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                      random=random)
-                               for _ in itertools.repeat(None, kernels_num)]
-                    splits, splits_copy = itertools.tee(splits)
-                    if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
-                        kernels = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
-                                                      DEFAULT_CANDIDATION_METHOD)
-                    accuracies = []
-                    for train_index, test_index in splits_copy:
-                        results = {}
-                        X_train, X_test = X.values[train_index], X.values[test_index]
-                        y_train, y_test = y.values[train_index], y.values[test_index]
-                        for kernel in kernels:
-                            embedded_train = kernel.calculate_kernel(X_train)
-                            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
-                            clf = get_classifier(classifier_config)
-                            clf.fit(embedded_train, y_train)
-                            results[kernel] = clf.predict(embedded_test)
-                        results_df = pd.DataFrame.from_dict(results)
-                        ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
-                        accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
-                    accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
-                    intermediate_results.setdefault(dataset_name, []).append(
-                        (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD),
-                         accuracy))
-                    count += 1
+    with open('experiments.json') as json_data_file:
+        experiments = json.load(json_data_file)
+    dataset_name = dataset[0].split('\\')[1]
+    global log_file
+    log_file = open(LOGFILE_NAME, 'a')
+    print_info('Starting to run experiments on dataset ' + dataset_name)
+    total_number_of_experiments = get_total_number_of_experiments(experiments)
+    dataframe = dataset[1]
+    dataframe = dataframe.fillna(dataframe.mean())
+    X = dataframe.iloc[:, :-1]
+    euclid_distances = euclidean_distances(X, X)
+    avg_euclid_distances = np.average(euclid_distances)
+    max_euclid_distances = np.max(euclid_distances)
+    y = dataframe.iloc[:, -1]
+    splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
+                                     n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1, random_state=0).split(X, y)
+    splits, splits_copy = itertools.tee(splits)
+    intermediate_results = run_baseline(dataset_name, X, y, splits_copy)
+    count = 0
+    for experiment_name, experiment_params in experiments.items():
+        print_info('Starting to run experiments ' + experiment_name + ' on ' + dataset_name)
+        for experiment_config in itertools.product(*get_experiment_parameters(experiment_params)):
+            try:
+                classifier_config = experiment_config[0]
+                if bool(util.strtobool(classifier_config['ensemble'])):
+                    continue
+                components_str = experiment_config[1]
+                kernels_num = experiment_config[2]
+                components_num = components_str if isinstance(components_str, int) else \
+                    round(X.shape[1] * float(components_str[:-1]))
+                if PROVIDE_SEED:
+                    random.seed(30)
+                kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
+                                  max_euclid_distances,
+                                  normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                  random=random)
+                           for _ in itertools.repeat(None, kernels_num)]
+                splits, splits_copy = itertools.tee(splits)
+                if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
+                    kernels = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
+                                                  DEFAULT_CANDIDATION_METHOD)
+                accuracies = []
+                for train_index, test_index in splits_copy:
+                    results = {}
+                    X_train, X_test = X.values[train_index], X.values[test_index]
+                    y_train, y_test = y.values[train_index], y.values[test_index]
+                    for kernel in kernels:
+                        embedded_train = kernel.calculate_kernel(X_train)
+                        embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                        clf = get_classifier(classifier_config)
+                        clf.fit(embedded_train, y_train)
+                        results[kernel] = clf.predict(embedded_test)
+                    results_df = pd.DataFrame.from_dict(results)
+                    ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
+                    accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
+                accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
+                intermediate_results.setdefault(dataset_name, []).append(
+                    (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD),
+                     accuracy))
+                count += 1
+                if PRINT_TO_STDOUT:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                               DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD)
-                    if PRINT_TO_STDOUT:
-                        print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
-                            ' ' + str_to_print)
-                except Exception as e:
-                    print_info('Failed to run experiment ' + experiment_name + ' with exception ' + str(e))
-                    count += 1
-                    intermediate_results.setdefault(dataset_name, []).append(
-                        (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                              DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD), -100))
-            print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
-        print_info('Finished running experiments on dataset ' + dataset_name)
-        return intermediate_results
+                        DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD)
+                    print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
+                        ' ' + str_to_print)
+                else:
+                    str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                        DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD, kernels)
+                    print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
+                               ' ' + str_to_print)
+            except Exception as e:
+                print_info('Failed to run experiment ' + experiment_name + ' with exception ' + str(e))
+                count += 1
+                intermediate_results.setdefault(dataset_name, []).append(
+                    (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD), -100))
+        print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
+    print_info('Finished running experiments on dataset ' + dataset_name)
+    log_file.close()
+    return intermediate_results
 
 
 def get_datasets():
@@ -258,11 +264,9 @@ def get_datasets():
 
 
 def get_experiments_results():
-    print_info('Starting to run experiments')
     pool = mp.Pool(mp.cpu_count()) if RUN_PARALLEL else mp.Pool(1)
     results = pool.map(run_experiments, [dataset for dataset in preprocess()])
     pool.close()
-    print_info('Finished running all experiments')
     data = {}
     column_names = []
     first_iteration_only = True
@@ -385,10 +389,16 @@ if __name__ == '__main__':
             df = pd.read_csv(input_file, index_col=0)
         else:
             print_info('Results file ' + input_file.split('/')[1] + ' not found')
+            print_info('Starting to run experiments')
+            log_file.close()
             df, input_file = get_experiments_results()
     else:
+        print_info('Starting to run experiments')
+        log_file.close()
         df, input_file = get_experiments_results()
+    log_file = open(LOGFILE_NAME, 'a')
     difference = datetime.datetime.now() - start
+    print_info('Finished running all experiments')
     print_info('Total run time is ' + str(difference))
     stat_results = run_statistical_analysis(df)
     print_info(stat_results, print_to_stdout=True)
