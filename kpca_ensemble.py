@@ -37,10 +37,11 @@ class CandidationMethod(Enum):
 
 CAP_DATASETS_AT = -1
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
-SEND_EMAIL = True
-PRINT_TO_STDOUT = False
+RUN_ON_LARGE_DATASETS = False
+SEND_EMAIL = False
+PRINT_TO_STDOUT = True
 PROVIDE_SEED = False
+USE_PRECALCULATED_PREDICTIONS = False
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
@@ -53,7 +54,7 @@ DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
 DEFAULT_NUMBER_OF_KERNELS = [20]
-DEFAULT_NUMBER_OF_COMPONENTS = ['0.5d']
+DEFAULT_NUMBER_OF_COMPONENTS = ['10']
 
 
 def print_info(message, print_to_stdout=PRINT_TO_STDOUT):
@@ -160,6 +161,7 @@ def evaluate_all_kernels(kernels, X, y, classifier_config, splits):
     kernels_heap = []
     for kernel in kernels:
         accuracies = []
+        split_predictions = []
         splits, splits_copy = itertools.tee(splits)
         for train_index, test_index in splits_copy:
             X_train, X_test = X.values[train_index], X.values[test_index]
@@ -168,19 +170,22 @@ def evaluate_all_kernels(kernels, X, y, classifier_config, splits):
             embedded_test = kernel.calculate_kernel(X_test, is_test=True)
             clf = get_classifier(classifier_config)
             clf.fit(embedded_train, y_train)
-            accuracies.append(metrics.accuracy_score(y_test, clf.predict(embedded_test)))
-        kernels_heap.append((kernel, round(np.mean(accuracies), ACCURACY_FLOATING_POINT)))
+            predictions = clf.predict(embedded_test)
+            if USE_PRECALCULATED_PREDICTIONS:
+                split_predictions.append(predictions)
+            accuracies.append(metrics.accuracy_score(y_test, predictions))
+        kernels_heap.append((kernel, round(np.mean(accuracies), ACCURACY_FLOATING_POINT), split_predictions))
     return sorted(kernels_heap, key=lambda tup: tup[1])
 
 
 def choose_best_kernels(kernels_and_evaluations, method):
     if method == CandidationMethod.BEST:
-        return [tup[0] for tup in kernels_and_evaluations[-KERNELS_TO_CHOOSE:]]
+        return [(tup[0], tup[2]) for tup in kernels_and_evaluations[-KERNELS_TO_CHOOSE:]]
     if method == CandidationMethod.MIXED:
         top = math.ceil(KERNELS_TO_CHOOSE / 2)
         rest = KERNELS_TO_CHOOSE - top
-        kernels_result = [tup[0] for tup in kernels_and_evaluations[:rest]]
-        kernels_result.extend([tup[0] for tup in kernels_and_evaluations[-top:]])
+        kernels_result = [(tup[0], tup[2]) for tup in kernels_and_evaluations[:rest]]
+        kernels_result.extend([(tup[0], tup[2]) for tup in kernels_and_evaluations[-top:]])
         return kernels_result
 
 
@@ -223,23 +228,33 @@ def run_experiments(dataset):
                                   random=random)
                            for _ in itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
+                kernel_to_predictions = None
                 if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
-                    kernels = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
-                                                  DEFAULT_CANDIDATION_METHOD)
+                    temp = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
+                                               DEFAULT_CANDIDATION_METHOD)
+                    kernels = [tup[0] for tup in temp]
+                    if USE_PRECALCULATED_PREDICTIONS:
+                        kernel_to_predictions = {tup[0]: tup[1] for tup in temp}
                 accuracies = []
+                i = 0
                 for train_index, test_index in splits_copy:
                     results = {}
                     X_train, X_test = X.values[train_index], X.values[test_index]
                     y_train, y_test = y.values[train_index], y.values[test_index]
                     for kernel in kernels:
-                        embedded_train = kernel.calculate_kernel(X_train)
-                        embedded_test = kernel.calculate_kernel(X_test, is_test=True)
-                        clf = get_classifier(classifier_config)
-                        clf.fit(embedded_train, y_train)
-                        results[kernel] = clf.predict(embedded_test)
+                        if kernel_to_predictions is not None:
+                            predictions = kernel_to_predictions[kernel][i]
+                        else:
+                            embedded_train = kernel.calculate_kernel(X_train)
+                            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                            clf = get_classifier(classifier_config)
+                            clf.fit(embedded_train, y_train)
+                            predictions = clf.predict(embedded_test)
+                        results[kernel] = predictions
                     results_df = pd.DataFrame.from_dict(results)
                     ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
                     accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
+                    i += 1
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
@@ -248,12 +263,14 @@ def run_experiments(dataset):
                 count += 1
                 if PRINT_TO_STDOUT:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                        DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD)
+                                                        DEFAULT_NUMBER_OF_FOLDS, kernels_num,
+                                                        DEFAULT_CANDIDATION_METHOD)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                         ' ' + str_to_print)
                 else:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                        DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD, kernels)
+                                                        DEFAULT_NUMBER_OF_FOLDS, kernels_num,
+                                                        DEFAULT_CANDIDATION_METHOD, kernels)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                                ' ' + str_to_print)
             except Exception as e:
