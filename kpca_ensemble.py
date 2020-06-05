@@ -35,13 +35,14 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-CAP_DATASETS_AT = -1
 RUN_PARALLEL = True
 RUN_ON_LARGE_DATASETS = True
 SEND_EMAIL = True
 PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
 USE_PRECALCULATED_PREDICTIONS = True
+REMOVE_INVALID_RESULTS = True
+CAP_DATASETS_AT = -1
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
 LARGE_DATASETS_FOLDER = 'large_datasets'
@@ -107,8 +108,9 @@ def write_results_to_csv(dataframe):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
     filename = RESULTS_FOLDER + '/results-' + current_time + '.csv'
-    mask = dataframe.ne(-100)
-    dataframe = dataframe.loc[mask.any(1), mask.any()]
+    if REMOVE_INVALID_RESULTS:
+        mask = dataframe.ne(-100)
+        dataframe = dataframe.loc[mask.any(1), mask.any()]
     averages = dataframe.mean(axis=0)
     best_baseline_accuracy = best_experiment_accuracy = -1
     for index, value in averages.items():
