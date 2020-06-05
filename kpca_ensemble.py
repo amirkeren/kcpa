@@ -106,6 +106,21 @@ def write_results_to_csv(dataframe):
         makedirs(RESULTS_FOLDER)
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
     filename = RESULTS_FOLDER + '/results-' + current_time + '.csv'
+    averages = dataframe.mean(axis=0)
+    best_baseline_accuracy = best_experiment_accuracy = -1
+    for index, value in averages.items():
+        if index.startswith('baseline'):
+            if value > best_baseline_accuracy:
+                best_baseline_accuracy = value
+                best_baseline = index
+        else:
+            if value > best_experiment_accuracy:
+                best_experiment_accuracy = value
+                best_experiment = index
+    cols = list(dataframe.columns.values)
+    cols.pop(cols.index(best_baseline))
+    cols.pop(cols.index(best_experiment))
+    dataframe = dataframe[[best_experiment, best_baseline] + cols]
     dataframe.to_csv(filename)
     return filename
 

@@ -1,4 +1,9 @@
 {
+  "mix": {
+    "kernel": {
+      "name": "mix"
+    }
+  },
   "laplacian": {
     "kernel": {
       "name": "laplacian"
