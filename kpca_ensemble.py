@@ -109,8 +109,7 @@ def write_results_to_csv(dataframe):
     current_time = strftime('%Y%m%d-%H%M%S', localtime())
     filename = RESULTS_FOLDER + '/results-' + current_time + '.csv'
     if REMOVE_INVALID_RESULTS:
-        mask = dataframe.ne(-100)
-        dataframe = dataframe.loc[mask.any(1), mask.any()]
+        dataframe = dataframe.drop(columns=dataframe.columns[(dataframe == -100).any()])
     averages = dataframe.mean(axis=0)
     best_baseline_accuracy = best_experiment_accuracy = -1
     for index, value in averages.items():
