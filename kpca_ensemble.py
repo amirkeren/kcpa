@@ -42,6 +42,7 @@ PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
 USE_PRECALCULATED_PREDICTIONS = True
 REMOVE_INVALID_RESULTS = True
+DIVIDE_AFTER_COMBINATION = False
 CAP_DATASETS_AT = -1
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
 DATASETS_FOLDER = 'datasets'
@@ -50,7 +51,7 @@ RESULTS_FOLDER = 'results'
 ACCURACY_FLOATING_POINT = 5
 KERNELS_TO_CHOOSE = 11
 DEFAULT_NUMBER_OF_FOLDS = 10  # 2
-DEFAULT_CANDIDATION_METHOD = CandidationMethod.BEST
+DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
 DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
@@ -162,7 +163,7 @@ def run_baseline(dataset_name, X, y, splits):
 
 def evaluate_all_kernels(kernels, X, y, classifier_config, splits):
     kernels_heap = []
-    for kernel in kernels:
+    for i, kernel in enumerate(kernels):
         accuracies = []
         split_predictions = []
         splits, splits_copy = itertools.tee(splits)
@@ -228,7 +229,8 @@ def run_experiments(dataset):
                 kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
                                   max_euclid_distances,
                                   normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                  random=random)
+                                  random=random,
+                                  divide_after_combination=DIVIDE_AFTER_COMBINATION)
                            for _ in itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
                 kernel_to_predictions = None
