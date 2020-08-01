@@ -1,4 +1,4 @@
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import numpy as np
 from enum import Enum
 
@@ -14,6 +14,7 @@ class Normalization(Enum):
     STANDARD = 1
     ABSOLUTE = 2
     NEGATIVE = 3
+    MINMAX = 4
     NONE = 4
 
 
@@ -24,5 +25,7 @@ def normalize(x, normalization_method):
         return x / np.max(np.abs(x), axis=0)
     if normalization_method == Normalization.STANDARD:
         return StandardScaler().fit_transform(x)
+    if normalization_method == Normalization.MINMAX:
+        return MinMaxScaler().fit_transform(x)
     if normalization_method == Normalization.NONE:
         return x
