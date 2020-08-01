@@ -12,13 +12,15 @@ from pairwise import pairwise_kernels
 
 
 class KernelPCA(TransformerMixin, BaseEstimator):
-    def __init__(self, n_components, kernel_params, kernel_combine, alpha, normalization_method, n_jobs=None):
+    def __init__(self, n_components, kernel_params, kernel_combine, alpha, normalization_method,
+                 divide_after_combination=False, n_jobs=None):
         self.kernel_params = kernel_params
         self.kernel_combine = kernel_combine
         self.n_components = n_components
         self.alpha = alpha
         self.normalization_method = normalization_method
         self.n_jobs = n_jobs
+        self.divide_after_combination = divide_after_combination
 
     @property
     def _pairwise(self):
@@ -32,10 +34,15 @@ class KernelPCA(TransformerMixin, BaseEstimator):
             return kernels[0]
         if self.kernel_combine == '+':
             if self.alpha:
-                return reduce((lambda x, y: self.alpha * normalize(x, self.normalization_method) +
+                return reduce((lambda x, y: (self.alpha * normalize(x, self.normalization_method) +
+                                            (1 - self.alpha) * normalize(y, self.normalization_method)) / 2), kernels) \
+                    if self.divide_after_combination else reduce((lambda x, y:
+                                                                  self.alpha * normalize(x, self.normalization_method) +
                                             (1 - self.alpha) * normalize(y, self.normalization_method)), kernels)
-            return reduce((lambda x, y: x + y), kernels)
-        return reduce((lambda x, y: x * y), kernels)
+            return reduce((lambda x, y: (x + y) / 2), kernels) if self.divide_after_combination else \
+                reduce((lambda x, y: x + y), kernels)
+        return reduce((lambda x, y: (x * y) / 2), kernels) if self.divide_after_combination else \
+            reduce((lambda x, y: x * y), kernels)
 
     def _fit_transform(self, K):
         K = self._centerer.fit_transform(K)

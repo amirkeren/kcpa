@@ -993,7 +993,7 @@ def linear_kernel(X, Y=None, dense_output=True):
     return safe_sparse_dot(X, Y.T, dense_output=dense_output)
 
 
-def polynomial_kernel(X, Y=None, degree=3, gamma=None, coef0=1):
+def polynomial_kernel(X, Y=None, degree=3, gamma=None, coef0=1, manipulation=lambda x: x):
     """
     Compute the polynomial kernel between X and Y::
 
@@ -1026,7 +1026,9 @@ def polynomial_kernel(X, Y=None, degree=3, gamma=None, coef0=1):
     K *= gamma
     K += coef0
     K **= degree
-    return K
+
+    return manipulation(K)
+
 
 def spd_kernel(X, Y=None):
     X, Y = check_pairwise_arrays(X, Y)
@@ -1034,7 +1036,8 @@ def spd_kernel(X, Y=None):
     K = np.matmul(np.matmul(X, P), Y.T)
     return K
 
-def sigmoid_kernel(X, Y=None, gamma=None, coef0=1):
+
+def sigmoid_kernel(X, Y=None, gamma=None, coef0=1, manipulation=lambda x: x):
     """
     Compute the sigmoid kernel between X and Y::
 
@@ -1065,10 +1068,10 @@ def sigmoid_kernel(X, Y=None, gamma=None, coef0=1):
     K *= gamma
     K += coef0
     np.tanh(K, K)  # compute tanh in-place
-    return K
+    return manipulation(K)
 
 
-def rbf_kernel(X, Y=None, gamma=None):
+def rbf_kernel(X, Y=None, gamma=None, manipulation=lambda x: x):
     """
     Compute the rbf (gaussian) kernel between X and Y::
 
@@ -1098,7 +1101,7 @@ def rbf_kernel(X, Y=None, gamma=None):
     K = euclidean_distances(X, Y, squared=True)
     K *= -gamma
     np.exp(K, K)  # exponentiate K in-place
-    return K
+    return manipulation(K)
 
 
 def laplacian_kernel(X, Y=None, gamma=None):
@@ -1819,11 +1822,11 @@ KERNEL_PARAMS = {
     "chi2": frozenset(["gamma"]),
     "cosine": (),
     "linear": (),
-    "poly": frozenset(["gamma", "degree", "coef0"]),
-    "polynomial": frozenset(["gamma", "degree", "coef0"]),
-    "rbf": frozenset(["gamma"]),
+    "poly": frozenset(["gamma", "degree", "coef0", "manipulation"]),
+    "polynomial": frozenset(["gamma", "degree", "coef0", "manipulation"]),
+    "rbf": frozenset(["gamma", "manipulation"]),
     "laplacian": frozenset(["gamma"]),
-    "sigmoid": frozenset(["gamma", "coef0"]),
+    "sigmoid": frozenset(["gamma", "coef0", "manipulation"]),
     "spd": (),
 }
 
