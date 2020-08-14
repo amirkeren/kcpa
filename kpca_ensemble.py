@@ -16,6 +16,7 @@ from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
 from pathlib import Path
+from scipy.spatial.distance import pdist
 import datetime
 import pandas as pd
 import numpy as np
@@ -35,11 +36,11 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
-SEND_EMAIL = True
-PRINT_TO_STDOUT = False
-PROVIDE_SEED = False
+RUN_PARALLEL = False
+RUN_ON_LARGE_DATASETS = False
+SEND_EMAIL = False
+PRINT_TO_STDOUT = True
+PROVIDE_SEED = True
 USE_PRECALCULATED_PREDICTIONS = True
 REMOVE_INVALID_RESULTS = True
 DIVIDE_AFTER_COMBINATION = False
@@ -226,40 +227,65 @@ def run_experiments(dataset):
                     round(X.shape[1] * float(components_str[:-1]))
                 if PROVIDE_SEED:
                     random.seed(30)
-                kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
-                                  max_euclid_distances,
-                                  normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                  random=random,
-                                  divide_after_combination=DIVIDE_AFTER_COMBINATION)
-                           for _ in itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
-                kernel_to_predictions = None
-                if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
-                    temp = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
-                                               DEFAULT_CANDIDATION_METHOD)
-                    kernels = [tup[0] for tup in temp]
-                    if USE_PRECALCULATED_PREDICTIONS:
-                        kernel_to_predictions = {tup[0]: tup[1] for tup in temp}
                 accuracies = []
-                i = 0
+                rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
+                                    max_euclid_distances,
+                                    normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                    random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
+                poly_kernel = Kernel({'name': 'poly'}, components_num, avg_euclid_distances,
+                                     max_euclid_distances,
+                                     normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                     random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
+                sigmoid_kernel = Kernel({'name': 'sigmoid'}, components_num, avg_euclid_distances,
+                                        max_euclid_distances,
+                                        normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                        random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
+                kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
                 for train_index, test_index in splits_copy:
-                    results = {}
-                    X_train, X_test = X.values[train_index], X.values[test_index]
-                    y_train, y_test = y.values[train_index], y.values[test_index]
-                    for kernel in kernels:
-                        if kernel_to_predictions is not None:
-                            predictions = kernel_to_predictions[kernel][i]
-                        else:
-                            embedded_train = kernel.calculate_kernel(X_train)
-                            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                    centers = np.random.choice(train_index, len(kernels))
+                    distances = pdist(X.values[train_index])
+                    max_distance = max(distances)
+                    radii = [random.uniform(max_distance / len(kernels), max_distance) for _ in range(len(kernels))]
+                    datastructure = {}
+                    for i, tup in enumerate(list(zip(centers, radii))):
+                        datastructure[i] = {'center': tup[0], 'radius': tup[1], 'kernel': kernels[i],
+                                            'train_points': [], 'test_points': []}
+                    for i in train_index:
+                        closest_point = None
+                        min_distance = float('inf')
+                        for key, value in datastructure.items():
+                            dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
+                            if dist <= value['radius'] and dist < min_distance:
+                                min_distance = dist
+                                closest_point = key
+                        if closest_point:
+                            datastructure[closest_point]['train_points'].append(i)
+                    for key, value in datastructure.items():
+                        X_train = X.values[value['train_points']]
+                        y_train = y.values[value['train_points']]
+                        if len(X_train) > 0:
+                            embedded_train = value['kernel'].calculate_kernel(X_train)
                             clf = get_classifier(classifier_config)
                             clf.fit(embedded_train, y_train)
-                            predictions = clf.predict(embedded_test)
-                        results[kernel] = predictions
-                    results_df = pd.DataFrame.from_dict(results)
-                    ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
-                    accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
-                    i += 1
+                            value['classifier'] = clf
+                    for i in test_index:
+                        closest_point = None
+                        min_distance = float('inf')
+                        for key, value in datastructure.items():
+                            dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
+                            if dist <= value['radius'] and dist < min_distance:
+                                min_distance = dist
+                                closest_point = key
+                        if closest_point:
+                            datastructure[closest_point]['test_points'].append(i)
+                    for key, value in datastructure.items():
+                        X_test = X.values[value['test_points']]
+                        y_test = y.values[value['test_points']]
+                        if len(X_test) > 0 and value['classifier']:
+                            embedded_test = value['kernel'].calculate_kernel(X_test, is_test=True)
+                            predictions = value['classifier'].predict(embedded_test)
+                            accuracies.append(metrics.accuracy_score(y_test, predictions))
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
