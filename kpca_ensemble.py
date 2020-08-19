@@ -26,7 +26,6 @@ import json
 import itertools
 import smtplib
 import configparser
-import math
 import random
 
 
@@ -36,12 +35,11 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-RUN_PARALLEL = False
-RUN_ON_LARGE_DATASETS = False
+RUN_PARALLEL = True
+RUN_ON_LARGE_DATASETS = True
 SEND_EMAIL = False
-PRINT_TO_STDOUT = True
-PROVIDE_SEED = True
-USE_PRECALCULATED_PREDICTIONS = True
+PRINT_TO_STDOUT = False
+PROVIDE_SEED = False
 REMOVE_INVALID_RESULTS = True
 DIVIDE_AFTER_COMBINATION = False
 CAP_DATASETS_AT = -1
@@ -162,38 +160,6 @@ def run_baseline(dataset_name, X, y, splits):
     return intermediate_results
 
 
-def evaluate_all_kernels(kernels, X, y, classifier_config, splits):
-    kernels_heap = []
-    for i, kernel in enumerate(kernels):
-        accuracies = []
-        split_predictions = []
-        splits, splits_copy = itertools.tee(splits)
-        for train_index, test_index in splits_copy:
-            X_train, X_test = X.values[train_index], X.values[test_index]
-            y_train, y_test = y.values[train_index], y.values[test_index]
-            embedded_train = kernel.calculate_kernel(X_train)
-            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
-            clf = get_classifier(classifier_config)
-            clf.fit(embedded_train, y_train)
-            predictions = clf.predict(embedded_test)
-            if USE_PRECALCULATED_PREDICTIONS:
-                split_predictions.append(predictions)
-            accuracies.append(metrics.accuracy_score(y_test, predictions))
-        kernels_heap.append((kernel, round(np.mean(accuracies), ACCURACY_FLOATING_POINT), split_predictions))
-    return sorted(kernels_heap, key=lambda tup: tup[1])
-
-
-def choose_best_kernels(kernels_and_evaluations, method):
-    if method == CandidationMethod.BEST:
-        return [(tup[0], tup[2]) for tup in kernels_and_evaluations[-KERNELS_TO_CHOOSE:]]
-    if method == CandidationMethod.MIXED:
-        top = math.ceil(KERNELS_TO_CHOOSE / 2)
-        rest = KERNELS_TO_CHOOSE - top
-        kernels_result = [(tup[0], tup[2]) for tup in kernels_and_evaluations[:rest]]
-        kernels_result.extend([(tup[0], tup[2]) for tup in kernels_and_evaluations[-top:]])
-        return kernels_result
-
-
 def run_experiments(dataset):
     with open('experiments.json') as json_data_file:
         experiments = json.load(json_data_file)
@@ -243,41 +209,48 @@ def run_experiments(dataset):
                                         random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
                 kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
                 for train_index, test_index in splits_copy:
-                    centers = np.random.choice(train_index, len(kernels))
+                    centers = [train_index[random.randint(0, len(train_index) - 1)] for _ in range(len(kernels))]
                     distances = pdist(X.values[train_index])
                     max_distance = max(distances)
                     radii = [random.uniform(max_distance / len(kernels), max_distance) for _ in range(len(kernels))]
                     datastructure = {}
                     for i, tup in enumerate(list(zip(centers, radii))):
                         datastructure[i] = {'center': tup[0], 'radius': tup[1], 'kernel': kernels[i],
-                                            'train_points': [], 'test_points': []}
+                                            'train_points': [], 'test_points': [], 'classifier': {}}
                     for i in train_index:
-                        closest_point = None
+                        closest_point = -1
                         min_distance = float('inf')
                         for key, value in datastructure.items():
                             dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
                             if dist <= value['radius'] and dist < min_distance:
                                 min_distance = dist
                                 closest_point = key
-                        if closest_point:
+                        if closest_point >= 0:
                             datastructure[closest_point]['train_points'].append(i)
+                        else:
+                            # TODO - what if a point is not close to any center?
+                            pass
                     for key, value in datastructure.items():
                         X_train = X.values[value['train_points']]
                         y_train = y.values[value['train_points']]
                         if len(X_train) > 0:
-                            embedded_train = value['kernel'].calculate_kernel(X_train)
-                            clf = get_classifier(classifier_config)
-                            clf.fit(embedded_train, y_train)
-                            value['classifier'] = clf
+                            try:
+                                embedded_train = value['kernel'].calculate_kernel(X_train)
+                                clf = get_classifier(classifier_config)
+                                clf.fit(embedded_train, y_train)
+                                value['classifier'] = clf
+                            except Exception as e:
+                                # TODO - figure why sigmoid is failing around 15% of the time
+                                print('FAIL', value['kernel'].kernel_name)
                     for i in test_index:
-                        closest_point = None
+                        closest_point = -1
                         min_distance = float('inf')
                         for key, value in datastructure.items():
                             dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
                             if dist <= value['radius'] and dist < min_distance:
                                 min_distance = dist
                                 closest_point = key
-                        if closest_point:
+                        if closest_point >= 0:
                             datastructure[closest_point]['test_points'].append(i)
                     for key, value in datastructure.items():
                         X_test = X.values[value['test_points']]
