@@ -231,11 +231,11 @@ def run_experiments(dataset):
                                 kernel_accuracies.append(metrics.accuracy_score(y_sub_test, predictions))
                             except:
                                 kernel_accuracies.append(-1)
-                                print_info(dataset_name, ' - Failed to calculate accuracy for kernel ' +
+                                print_info(dataset_name + ' - Failed to calculate accuracy for kernel ' +
                                            kernel.kernel_name)
                         temp_accuracies[i] = round(np.asarray(kernel_accuracies).mean(), ACCURACY_FLOATING_POINT)
                     member = kernels[max(temp_accuracies.items(), key=operator.itemgetter(1))[0]]
-                    print_info(dataset_name, ' - Selected ' + kernel.kernel_name + ' as member')
+                    print_info(dataset_name + ' - Selected ' + kernel.kernel_name + ' as member')
                     embedded_train = member.calculate_kernel(X_train)
                     embedded_test = member.calculate_kernel(X_test, is_test=True)
                     clf = get_classifier(classifier_config)
