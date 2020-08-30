@@ -22,6 +22,7 @@ import pandas as pd
 import numpy as np
 import multiprocessing as mp
 import sys
+import operator
 import json
 import itertools
 import smtplib
@@ -209,56 +210,38 @@ def run_experiments(dataset):
                                         random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
                 kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
                 for train_index, test_index in splits_copy:
-                    centers = [train_index[random.randint(0, len(train_index) - 1)] for _ in range(len(kernels))]
-                    distances = pdist(X.values[train_index])
-                    max_distance = max(distances)
-                    radii = [random.uniform(max_distance / len(kernels), max_distance) for _ in range(len(kernels))]
-                    datastructure = {}
-                    for i, tup in enumerate(list(zip(centers, radii))):
-                        datastructure[i] = {'center': tup[0], 'radius': tup[1], 'kernel': kernels[i],
-                                            'train_points': [], 'test_points': [], 'classifier': {}}
-                    for i in train_index:
-                        closest_point = -1
-                        min_distance = float('inf')
-                        for key, value in datastructure.items():
-                            dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                            if dist <= value['radius'] and dist < min_distance:
-                                min_distance = dist
-                                closest_point = key
-                        if closest_point >= 0:
-                            datastructure[closest_point]['train_points'].append(i)
-                        else:
-                            # TODO - what if a point is not close to any center?
-                            pass
-                    for key, value in datastructure.items():
-                        X_train = X.values[value['train_points']]
-                        y_train = y.values[value['train_points']]
-                        if len(X_train) > 0:
+                    X_train, X_test = X.values[train_index], X.values[test_index]
+                    y_train, y_test = y.values[train_index], y.values[test_index]
+                    sub_splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
+                                                         n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1,
+                                                         random_state=0).split(X_train, y_train)
+                    temp_accuracies = {}
+                    for i, kernel in enumerate(kernels):
+                        kernel_accuracies = []
+                        sub_splits, sub_splits_copy = itertools.tee(sub_splits)
+                        for sub_train_index, sub_test_index in sub_splits_copy:
                             try:
-                                embedded_train = value['kernel'].calculate_kernel(X_train)
+                                X_sub_train, X_sub_test = X_train[sub_train_index], X_train[sub_test_index]
+                                y_sub_train, y_sub_test = y_train[sub_train_index], y_train[sub_test_index]
+                                embedded_train = kernel.calculate_kernel(X_sub_train)
+                                embedded_test = kernel.calculate_kernel(X_sub_test, is_test=True)
                                 clf = get_classifier(classifier_config)
-                                clf.fit(embedded_train, y_train)
-                                value['classifier'] = clf
-                            except Exception as e:
-                                # TODO - figure why sigmoid is failing around 15% of the time
-                                print('FAIL', value['kernel'].kernel_name)
-                    for i in test_index:
-                        closest_point = -1
-                        min_distance = float('inf')
-                        for key, value in datastructure.items():
-                            dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                            if dist <= value['radius'] and dist < min_distance:
-                                min_distance = dist
-                                closest_point = key
-                        if closest_point >= 0:
-                            datastructure[closest_point]['test_points'].append(i)
-                    for key, value in datastructure.items():
-                        X_test = X.values[value['test_points']]
-                        y_test = y.values[value['test_points']]
-                        if len(X_test) > 0 and value['classifier']:
-                            embedded_test = value['kernel'].calculate_kernel(X_test, is_test=True)
-                            predictions = value['classifier'].predict(embedded_test)
-                            accuracies.append(metrics.accuracy_score(y_test, predictions))
+                                clf.fit(embedded_train, y_sub_train)
+                                predictions = clf.predict(embedded_test)
+                                kernel_accuracies.append(metrics.accuracy_score(y_sub_test, predictions))
+                            except:
+                                kernel_accuracies.append(-1)
+                                print_info(dataset_name, ' - Failed to calculate accuracy for kernel ' +
+                                           kernel.kernel_name)
+                        temp_accuracies[i] = round(np.asarray(kernel_accuracies).mean(), ACCURACY_FLOATING_POINT)
+                    member = kernels[max(temp_accuracies.items(), key=operator.itemgetter(1))[0]]
+                    print_info(dataset_name, ' - Selected ' + kernel.kernel_name + ' as member')
+                    embedded_train = member.calculate_kernel(X_train)
+                    embedded_test = member.calculate_kernel(X_test, is_test=True)
+                    clf = get_classifier(classifier_config)
+                    clf.fit(embedded_train, y_train)
+                    predictions = clf.predict(embedded_test)
+                    accuracies.append(metrics.accuracy_score(y_test, predictions))
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
