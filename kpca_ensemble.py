@@ -35,11 +35,11 @@ class CandidationMethod(Enum):
     NONE = 3
 
 
-RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
-SEND_EMAIL = True
-PRINT_TO_STDOUT = False
-PROVIDE_SEED = False
+RUN_PARALLEL = False
+RUN_ON_LARGE_DATASETS = False
+SEND_EMAIL = False
+PRINT_TO_STDOUT = True
+PROVIDE_SEED = True
 USE_PRECALCULATED_PREDICTIONS = True
 REMOVE_INVALID_RESULTS = True
 DIVIDE_AFTER_COMBINATION = False
@@ -55,7 +55,7 @@ DEFAULT_CANDIDATION_METHOD = CandidationMethod.NONE
 DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
-DEFAULT_NUMBER_OF_KERNELS = [20]
+DEFAULT_NUMBER_OF_MEMBERS = [11]
 DEFAULT_NUMBER_OF_COMPONENTS = ['10']
 
 
@@ -136,7 +136,7 @@ def get_experiment_parameters(experiment_params):
     components = experiment_params['components'] if 'components' in experiment_params \
         else DEFAULT_NUMBER_OF_COMPONENTS
     ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
-        else DEFAULT_NUMBER_OF_KERNELS
+        else DEFAULT_NUMBER_OF_MEMBERS
     return classifiers_list, components, ensemble_size
 
 
@@ -221,41 +221,61 @@ def run_experiments(dataset):
                 if bool(util.strtobool(classifier_config['ensemble'])):
                     continue
                 components_str = experiment_config[1]
-                kernels_num = experiment_config[2]
+                members_num = experiment_config[2]
                 components_num = components_str if isinstance(components_str, int) else \
                     round(X.shape[1] * float(components_str[:-1]))
                 if PROVIDE_SEED:
                     random.seed(30)
-                kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
-                                  max_euclid_distances,
-                                  normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                  random=random,
-                                  divide_after_combination=DIVIDE_AFTER_COMBINATION)
-                           for _ in itertools.repeat(None, kernels_num)]
+                # kernels = [Kernel(experiment_params['kernel'], components_num, avg_euclid_distances,
+                #                   max_euclid_distances,
+                #                   normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                #                   random=random,
+                #                   divide_after_combination=DIVIDE_AFTER_COMBINATION)
+                #            for _ in itertools.repeat(None, kernels_num)]
                 splits, splits_copy = itertools.tee(splits)
-                kernel_to_predictions = None
-                if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
-                    temp = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
-                                               DEFAULT_CANDIDATION_METHOD)
-                    kernels = [tup[0] for tup in temp]
-                    if USE_PRECALCULATED_PREDICTIONS:
-                        kernel_to_predictions = {tup[0]: tup[1] for tup in temp}
+                # kernel_to_predictions = None
+                # if len(kernels) > KERNELS_TO_CHOOSE and DEFAULT_CANDIDATION_METHOD != CandidationMethod.NONE:
+                #     temp = choose_best_kernels(evaluate_all_kernels(kernels, X, y, classifier_config, splits_copy),
+                #                                DEFAULT_CANDIDATION_METHOD)
+                #     kernels = [tup[0] for tup in temp]
+                #     if USE_PRECALCULATED_PREDICTIONS:
+                #         kernel_to_predictions = {tup[0]: tup[1] for tup in temp}
                 accuracies = []
                 i = 0
                 for train_index, test_index in splits_copy:
                     results = {}
                     X_train, X_test = X.values[train_index], X.values[test_index]
                     y_train, y_test = y.values[train_index], y.values[test_index]
-                    for kernel in kernels:
-                        if kernel_to_predictions is not None:
-                            predictions = kernel_to_predictions[kernel][i]
-                        else:
+
+                    kernels_and_classifiers = []
+                    for _ in range(members_num):
+                        rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
+                                            max_euclid_distances,
+                                            normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                            random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
+                        poly_kernel = Kernel({'name': 'poly'}, components_num, avg_euclid_distances,
+                                             max_euclid_distances,
+                                             normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                             random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
+                        sigmoid_kernel = Kernel({'name': 'sigmoid'}, components_num, avg_euclid_distances,
+                                                max_euclid_distances,
+                                                normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                                random=random, divide_after_combination=DIVIDE_AFTER_COMBINATION)
+                        kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
+                        for kernel in kernels:
                             embedded_train = kernel.calculate_kernel(X_train)
-                            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                            # embedded_test = kernel.calculate_kernel(X_test, is_test=True)
                             clf = get_classifier(classifier_config)
                             clf.fit(embedded_train, y_train)
-                            predictions = clf.predict(embedded_test)
-                        results[kernel] = predictions
+                            kernels_and_classifiers.append((kernel, clf))
+                            # predictions = clf.predict(embedded_test)
+                        # results[kernel] = predictions
+
+                    for kernel, clf in kernels_and_classifiers:
+                        embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                        predictions = clf.predict(embedded_test)
+                        results[(kernel, clf)] = predictions
+
                     results_df = pd.DataFrame.from_dict(results)
                     ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
                     accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
@@ -263,18 +283,18 @@ def run_experiments(dataset):
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD),
+                                          DEFAULT_NUMBER_OF_FOLDS, members_num, DEFAULT_CANDIDATION_METHOD),
                      accuracy))
                 count += 1
                 if PRINT_TO_STDOUT:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                        DEFAULT_NUMBER_OF_FOLDS, kernels_num,
+                                                        DEFAULT_NUMBER_OF_FOLDS, members_num,
                                                         DEFAULT_CANDIDATION_METHOD)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                         ' ' + str_to_print)
                 else:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                        DEFAULT_NUMBER_OF_FOLDS, kernels_num,
+                                                        DEFAULT_NUMBER_OF_FOLDS, members_num,
                                                         DEFAULT_CANDIDATION_METHOD, kernels)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                                ' ' + str_to_print)
@@ -283,7 +303,7 @@ def run_experiments(dataset):
                 count += 1
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, kernels_num, DEFAULT_CANDIDATION_METHOD), -100))
+                                          DEFAULT_NUMBER_OF_FOLDS, members_num, DEFAULT_CANDIDATION_METHOD), -100))
         print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
     print_info('Finished running experiments on dataset ' + dataset_name)
     log_file.close()
