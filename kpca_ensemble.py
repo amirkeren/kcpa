@@ -4,7 +4,6 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
-from enum import Enum
 from os import listdir, makedirs, remove
 from os.path import isfile, join, exists
 from kernel import Kernel
@@ -16,6 +15,7 @@ from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
 from pathlib import Path
+import operator
 import datetime
 import pandas as pd
 import numpy as np
@@ -201,11 +201,33 @@ def run_experiments(dataset):
                                                 normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
                                                 random=random)
                         kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
-                        for kernel in kernels:
-                            embedded_train = kernel.calculate_kernel(X_train)
-                            clf = get_classifier(classifier_config)
-                            clf.fit(embedded_train, y_train)
-                            kernels_and_classifiers.append((kernel, clf))
+                        sub_splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
+                                                             n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1,
+                                                             random_state=0).split(X_train, y_train)
+                        temp_accuracies = {}
+                        for i, kernel in enumerate(kernels):
+                            kernel_accuracies = []
+                            sub_splits, sub_splits_copy = itertools.tee(sub_splits)
+                            for sub_train_index, sub_test_index in sub_splits_copy:
+                                try:
+                                    X_sub_train, X_sub_test = X_train[sub_train_index], X_train[sub_test_index]
+                                    y_sub_train, y_sub_test = y_train[sub_train_index], y_train[sub_test_index]
+                                    embedded_train = kernel.calculate_kernel(X_sub_train)
+                                    embedded_test = kernel.calculate_kernel(X_sub_test, is_test=True)
+                                    clf = get_classifier(classifier_config)
+                                    clf.fit(embedded_train, y_sub_train)
+                                    predictions = clf.predict(embedded_test)
+                                    kernel_accuracies.append(metrics.accuracy_score(y_sub_test, predictions))
+                                except:
+                                    kernel_accuracies.append(-1)
+                                    print_info(dataset_name + ' - Failed to calculate accuracy for kernel ' +
+                                               kernel.kernel_name)
+                            temp_accuracies[i] = round(np.asarray(kernel_accuracies).mean(), ACCURACY_FLOATING_POINT)
+                        member = kernels[max(temp_accuracies.items(), key=operator.itemgetter(1))[0]]
+                        embedded_train = member.calculate_kernel(X_train)
+                        clf = get_classifier(classifier_config)
+                        clf.fit(embedded_train, y_train)
+                        kernels_and_classifiers.append((member, clf))
                     for kernel, clf in kernels_and_classifiers:
                         embedded_test = kernel.calculate_kernel(X_test, is_test=True)
                         predictions = clf.predict(embedded_test)
@@ -232,7 +254,8 @@ def run_experiments(dataset):
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                                ' ' + str_to_print)
             except Exception as e:
-                print_info('Failed to run experiment ' + experiment_name + ' with exception ' + str(e))
+                print_info('Failed to run experiment ' + experiment_name + ' on dataset ' + dataset_name +
+                           ' with exception ' + str(e))
                 count += 1
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
