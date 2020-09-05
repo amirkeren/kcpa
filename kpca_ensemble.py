@@ -4,7 +4,6 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
-from enum import Enum
 from os import listdir, makedirs, remove
 from os.path import isfile, join, exists
 from kernel import Kernel
@@ -28,8 +27,8 @@ import configparser
 import random
 
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
-SEND_EMAIL = True
+RUN_ON_LARGE_DATASETS = False
+SEND_EMAIL = False
 PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
 REMOVE_INVALID_RESULTS = True
@@ -202,10 +201,14 @@ def run_experiments(dataset):
                                                 random=random)
                         kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
                         for kernel in kernels:
-                            embedded_train = kernel.calculate_kernel(X_train)
-                            clf = get_classifier(classifier_config)
-                            clf.fit(embedded_train, y_train)
-                            kernels_and_classifiers.append((kernel, clf))
+                            try:
+                                embedded_train = kernel.calculate_kernel(X_train)
+                                clf = get_classifier(classifier_config)
+                                clf.fit(embedded_train, y_train)
+                                kernels_and_classifiers.append((kernel, clf))
+                            except Exception as e:
+                                print_info('Failed to calculate kernel ' + kernel.kernel_name + ' in dataset ' +
+                                           dataset_name)
                     for kernel, clf in kernels_and_classifiers:
                         embedded_test = kernel.calculate_kernel(X_test, is_test=True)
                         predictions = clf.predict(embedded_test)
