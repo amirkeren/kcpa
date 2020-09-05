@@ -27,15 +27,8 @@ import smtplib
 import configparser
 import random
 
-
-class CandidationMethod(Enum):
-    BEST = 1
-    MIXED = 2
-    NONE = 3
-
-
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
+RUN_ON_LARGE_DATASETS = False
 SEND_EMAIL = True
 PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
