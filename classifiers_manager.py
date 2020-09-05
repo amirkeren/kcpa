@@ -11,35 +11,7 @@ CLASSIFIERS = [
         "ensemble": "False"
     },
     {
-        "name": "decision_stump",
-        "ensemble": "False"
-    },
-    {
-        "name": "nearest_neighbors",
-        "ensemble": "False"
-    },
-    {
-        "name": "gaussian_nb",
-        "ensemble": "False"
-    },
-    {
         "name": "random_forest",
-        "ensemble": "True"
-    },
-    {
-        "name": "ada_boost",
-        "ensemble": "True"
-    },
-    {
-        "name": "rotation_forest",
-        "ensemble": "True"
-    },
-    {
-        "name": "bagging",
-        "ensemble": "True"
-    },
-    {
-        "name": "gradient_boosting",
         "ensemble": "True"
     }
 ]

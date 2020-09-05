@@ -17,7 +17,7 @@ KERNELS = ['spd', 'poly', 'sigmoid', 'rbf']
 
 class Kernel:
     def __init__(self, kernel_config, components_num, avg_euclidean_distances, max_euclidean_distances,
-                 normalization_method, random, divide_after_combination):
+                 normalization_method, random, divide_after_combination=False):
         self.kernel_params = {}
         self.avg_euclidean_distances = avg_euclidean_distances
         self.max_euclidean_distances = max_euclidean_distances
