@@ -214,7 +214,7 @@ def run_experiments(dataset):
                         temp_results = {}
                         for j in range(len(kernels)):
                             kernel, clf = kernels_and_classifiers[i + j]
-                            if kernel:
+                            if clf:
                                 embedded_test = kernel.calculate_kernel(X_test, is_test=True)
                                 predictions = clf.predict(embedded_test)
                                 temp_results[(kernel, clf)] = predictions
