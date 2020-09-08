@@ -42,7 +42,7 @@ DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
-DEFAULT_NUMBER_OF_MEMBERS = [11, 21]
+DEFAULT_NUMBER_OF_MEMBERS = [11]
 DEFAULT_NUMBER_OF_COMPONENTS = ['10']
 
 
@@ -214,12 +214,14 @@ def run_experiments(dataset):
                         temp_results = {}
                         for j in range(len(kernels)):
                             kernel, clf = kernels_and_classifiers[i + j]
-                            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
-                            predictions = clf.predict(embedded_test)
-                            temp_results[(kernel, clf)] = predictions
-                        results_df = pd.DataFrame.from_dict(temp_results)
-                        ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
-                        results[(kernel, clf)] = ensemble_vote
+                            if kernel:
+                                embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                                predictions = clf.predict(embedded_test)
+                                temp_results[(kernel, clf)] = predictions
+                        if temp_results:
+                            results_df = pd.DataFrame.from_dict(temp_results)
+                            ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
+                            results[(kernel, clf)] = ensemble_vote
                     results_df = pd.DataFrame.from_dict(results)
                     ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
                     accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
