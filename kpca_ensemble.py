@@ -174,7 +174,7 @@ def run_experiments(dataset):
                     continue
                 components_str = experiment_config[1]
                 members_num = experiment_config[2]
-                components_num = components_str if isinstance(components_str, int) else \
+                components_num = int(components_str) if components_str.isdigit() else \
                     round(X.shape[1] * float(components_str[:-1]))
                 if PROVIDE_SEED:
                     random.seed(30)
