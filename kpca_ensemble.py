@@ -6,6 +6,9 @@ from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from os import listdir, makedirs, remove
 from os.path import isfile, join, exists
+
+from scipy.spatial.distance import pdist
+
 from kernel import Kernel
 from classifiers_manager import get_classifier, CLASSIFIERS, is_ensemble_classifier
 from sklearn.metrics.pairwise import euclidean_distances
@@ -15,6 +18,7 @@ from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
 from pathlib import Path
+from collections import Counter
 import datetime
 import pandas as pd
 import numpy as np
@@ -42,7 +46,7 @@ DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
-DEFAULT_NUMBER_OF_MEMBERS = [11]
+DEFAULT_NUMBER_OF_MEMBERS = [11, 21]
 DEFAULT_NUMBER_OF_COMPONENTS = ['10']
 
 
@@ -174,54 +178,120 @@ def run_experiments(dataset):
                     continue
                 components_str = experiment_config[1]
                 members_num = experiment_config[2]
-                components_num = components_str if isinstance(components_str, int) else \
+                components_num = int(components_str) if components_str.isdigit() else \
                     round(X.shape[1] * float(components_str[:-1]))
                 if PROVIDE_SEED:
                     random.seed(30)
                 splits, splits_copy = itertools.tee(splits)
                 accuracies = []
-                i = 0
+                n = 5  # TODO - move to default params
                 for train_index, test_index in splits_copy:
                     results = {}
-                    X_train, X_test = X.values[train_index], X.values[test_index]
-                    y_train, y_test = y.values[train_index], y.values[test_index]
-                    kernels_and_classifiers = []
+                    all_kernels = []
+                    members = []
                     for _ in range(members_num):
-                        rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
-                                            max_euclid_distances,
-                                            normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                            random=random)
-                        poly_kernel = Kernel({'name': 'poly'}, components_num, avg_euclid_distances,
-                                             max_euclid_distances,
-                                             normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                             random=random)
-                        sigmoid_kernel = Kernel({'name': 'sigmoid'}, components_num, avg_euclid_distances,
+                        datastructure = {}
+                        centers = [train_index[random.randint(0, len(train_index) - 1)] for _ in range(n)]
+                        distances = pdist(X.values[train_index])
+                        max_distance = max(distances)
+                        radii = [random.uniform(max_distance / n, max_distance) for _ in range(n)]
+                        for i, tup in enumerate(list(zip(centers, radii))):
+                            rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
                                                 max_euclid_distances,
                                                 normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
                                                 random=random)
-                        kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
-                        for kernel in kernels:
-                            try:
-                                embedded_train = kernel.calculate_kernel(X_train)
-                                clf = get_classifier(classifier_config)
-                                clf.fit(embedded_train, y_train)
-                                kernels_and_classifiers.append((kernel, clf))
-                            except Exception as e:
-                                print_info('Failed to calculate kernel ' + kernel.kernel_name + ' in dataset ' +
-                                           dataset_name)
-                    for kernel, clf in kernels_and_classifiers:
-                        embedded_test = kernel.calculate_kernel(X_test, is_test=True)
-                        predictions = clf.predict(embedded_test)
-                        results[(kernel, clf)] = predictions
-                    results_df = pd.DataFrame.from_dict(results)
-                    ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
+                            poly_kernel = Kernel({'name': 'poly'}, components_num, avg_euclid_distances,
+                                                 max_euclid_distances,
+                                                 normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                                 random=random)
+                            sigmoid_kernel = Kernel({'name': 'sigmoid'}, components_num, avg_euclid_distances,
+                                                    max_euclid_distances,
+                                                    normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                                    random=random)
+                            kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
+                            all_kernels.extend(kernels)
+                            datastructure[i] = {'center': tup[0], 'radius': tup[1], 'kernels': kernels,
+                                                'train_points': [], 'classifiers': []}
+                        for i in train_index:
+                            closest_point = -1
+                            min_distance = float('inf')
+                            for key, value in datastructure.items():
+                                dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
+                                if dist <= value['radius'] and dist < min_distance:
+                                    min_distance = dist
+                                    closest_point = key
+                            if closest_point >= 0:
+                                datastructure[closest_point]['train_points'].append(i)
+                            else:
+                                min_distance = float('inf')
+                                for key, value in datastructure.items():
+                                    dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
+                                    if dist < min_distance:
+                                        min_distance = dist
+                                        closest_point = key
+                                if closest_point >= 0:
+                                    datastructure[closest_point]['train_points'].append(i)
+                                else:
+                                    print('here')
+                        for key, value in datastructure.items():
+                            X_train = X.values[value['train_points']]
+                            y_train = y.values[value['train_points']]
+                            if len(X_train) > 0:
+                                for kernel in value['kernels']:
+                                    try:
+                                        embedded_train = kernel.calculate_kernel(X_train)
+                                        clf = get_classifier(classifier_config)
+                                        clf.fit(embedded_train, y_train)
+                                        value['classifiers'].append(clf)
+                                    except Exception as e:
+                                        value['classifiers'].append(None)
+                                        print_info('Failed to fit kernel ' + kernel.kernel_name + ' in dataset ' +
+                                                   dataset_name)
+                        members.append(datastructure)
+                    row_to_classifications = {}
+                    for i in test_index:
+                        classifications = []
+                        for member in members:
+                            closest_point = -1
+                            min_distance = float('inf')
+                            for key, value in member.items():
+                                dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
+                                if dist <= value['radius'] and dist < min_distance:
+                                    min_distance = dist
+                                    closest_point = key
+                                else:
+                                    min_distance = float('inf')
+                                    for key, value in member.items():
+                                        dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
+                                        if dist < min_distance:
+                                            min_distance = dist
+                                            closest_point = key
+                            if closest_point >= 0:
+                                value = member[closest_point]
+                                for j, kernel in enumerate(value['kernels']):
+                                    clf = value['classifiers'][j]
+                                    if clf:
+                                        classifications.append((clf, kernel))
+                                    else:
+                                        print('here3')
+                            else:
+                                print('here2')
+                        row_to_classifications[i] = classifications
+                    y_test = y.values[test_index]
+                    ensemble_vote = []
+                    for row, classifications in row_to_classifications.items():
+                        X_test = X.values[[row]]
+                        predictions = []
+                        for clf, kernel in classifications:
+                            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                            predictions.append(clf.predict(embedded_test))
+                        occurence_count = Counter(list(map(lambda x: x[0], predictions)))
+                        ensemble_vote.append(occurence_count.most_common(1)[0][0])
                     accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
-                    i += 1
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, members_num),
-                     accuracy))
+                                          DEFAULT_NUMBER_OF_FOLDS, members_num), accuracy))
                 count += 1
                 if PRINT_TO_STDOUT:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
@@ -229,9 +299,8 @@ def run_experiments(dataset):
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                         ' ' + str_to_print)
                 else:
-                    kernels = [key[0] for key in kernels_and_classifiers]
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, kernels)
+                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, all_kernels)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                                ' ' + str_to_print)
             except Exception as e:
