@@ -186,7 +186,6 @@ def run_experiments(dataset):
                 accuracies = []
                 n = 5  # TODO - move to default params
                 for train_index, test_index in splits_copy:
-                    results = {}
                     all_kernels = []
                     members = []
                     for _ in range(members_num):
@@ -231,8 +230,6 @@ def run_experiments(dataset):
                                         closest_point = key
                                 if closest_point >= 0:
                                     datastructure[closest_point]['train_points'].append(i)
-                                else:
-                                    print('here')
                         for key, value in datastructure.items():
                             X_train = X.values[value['train_points']]
                             y_train = y.values[value['train_points']]
@@ -272,10 +269,6 @@ def run_experiments(dataset):
                                     clf = value['classifiers'][j]
                                     if clf:
                                         classifications.append((clf, kernel))
-                                    else:
-                                        print('here3')
-                            else:
-                                print('here2')
                         row_to_classifications[i] = classifications
                     y_test = y.values[test_index]
                     ensemble_vote = []
