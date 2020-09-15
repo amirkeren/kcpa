@@ -1,7 +1,7 @@
 {
-  "approach1": {
+  "approach1_extended": {
     "kernel": {
-      "name": "approach1"
+      "name": "approach1_extended"
     }
   }
 }
