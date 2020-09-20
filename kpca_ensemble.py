@@ -6,9 +6,6 @@ from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from os import listdir, makedirs, remove
 from os.path import isfile, join, exists
-
-from scipy.spatial.distance import pdist
-
 from kernel import Kernel
 from classifiers_manager import get_classifier, CLASSIFIERS, is_ensemble_classifier
 from sklearn.metrics.pairwise import euclidean_distances
@@ -30,11 +27,11 @@ import smtplib
 import configparser
 import random
 
-RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
-SEND_EMAIL = True
-PRINT_TO_STDOUT = False
-PROVIDE_SEED = False
+RUN_PARALLEL = False
+RUN_ON_LARGE_DATASETS = False
+SEND_EMAIL = False
+PRINT_TO_STDOUT = True
+PROVIDE_SEED = True
 REMOVE_INVALID_RESULTS = True
 CAP_DATASETS_AT = -1
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
@@ -149,6 +146,21 @@ def run_baseline(dataset_name, X, y, splits):
     return intermediate_results
 
 
+def generate_centers(n, X, train_index, radius):
+    centers = [train_index[random.randint(0, len(train_index) - 1)]]
+    while len(centers) < n:
+        random_point = train_index[random.randint(0, len(train_index) - 1)]
+        found = False
+        for center in centers:
+            dist = np.linalg.norm(X.values[random_point, :] - X.values[center, :])
+            if dist > radius:
+                found = True
+                break
+        if found:
+            centers.append(random_point)
+    return centers
+
+
 def run_experiments(dataset):
     with open('experiments.json') as json_data_file:
         experiments = json.load(json_data_file)
@@ -190,11 +202,9 @@ def run_experiments(dataset):
                     members = []
                     for _ in range(members_num):
                         datastructure = {}
-                        centers = [train_index[random.randint(0, len(train_index) - 1)] for _ in range(n)]
-                        distances = pdist(X.values[train_index])
-                        max_distance = max(distances)
-                        radii = [random.uniform(max_distance / n, max_distance) for _ in range(n)]
-                        for i, tup in enumerate(list(zip(centers, radii))):
+                        radius = avg_euclid_distances
+                        centers = generate_centers(n, X, train_index, radius)
+                        for i, center in enumerate(centers):
                             rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
                                                 max_euclid_distances,
                                                 normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
@@ -209,14 +219,14 @@ def run_experiments(dataset):
                                                     random=random)
                             kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
                             all_kernels.extend(kernels)
-                            datastructure[i] = {'center': tup[0], 'radius': tup[1], 'kernels': kernels,
+                            datastructure[i] = {'center': center, 'kernels': kernels,
                                                 'train_points': [], 'classifiers': []}
                         for i in train_index:
                             closest_point = -1
                             min_distance = float('inf')
                             for key, value in datastructure.items():
                                 dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                                if dist <= value['radius'] and dist < min_distance:
+                                if dist <= radius and dist < min_distance:
                                     min_distance = dist
                                     closest_point = key
                             if closest_point >= 0:
@@ -253,7 +263,7 @@ def run_experiments(dataset):
                             min_distance = float('inf')
                             for key, value in member.items():
                                 dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                                if dist <= value['radius'] and dist < min_distance:
+                                if dist <= radius and dist < min_distance:
                                     min_distance = dist
                                     closest_point = key
                                 else:
