@@ -27,11 +27,11 @@ import smtplib
 import configparser
 import random
 
-RUN_PARALLEL = False
-RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = False
-PRINT_TO_STDOUT = True
-PROVIDE_SEED = True
+RUN_PARALLEL = True
+RUN_ON_LARGE_DATASETS = True
+SEND_EMAIL = True
+PRINT_TO_STDOUT = False
+PROVIDE_SEED = False
 REMOVE_INVALID_RESULTS = True
 CAP_DATASETS_AT = -1
 LOGFILE_NAME = 'logs/output-' + strftime("%d%m%Y-%H%M") + '.log'
