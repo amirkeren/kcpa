@@ -146,9 +146,10 @@ def run_baseline(dataset_name, X, y, splits):
     for classifier_config in CLASSIFIERS:
         splits, splits_copy = itertools.tee(splits)
         clf = get_classifier(classifier_config)
-        accuracy = round(np.mean(cross_val_score(clf, X, y, cv=splits_copy)), ACCURACY_FLOATING_POINT)
-        intermediate_results.setdefault(dataset_name, []).append((
-            build_experiment_key(experiment_name, classifier_config['name']), accuracy))
+        accuracies = cross_val_score(clf, X, y, cv=splits_copy)
+        for fold in range(len(accuracies)):
+            intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append((
+                build_experiment_key(experiment_name, classifier_config['name']), accuracies[fold]))
     return intermediate_results
 
 
@@ -200,8 +201,7 @@ def run_experiments(dataset):
                 if PROVIDE_SEED:
                     random.seed(30)
                 splits, splits_copy = itertools.tee(splits)
-                accuracies = []
-                for train_index, test_index in splits_copy:
+                for fold, (train_index, test_index) in enumerate(splits_copy):
                     all_kernels = []
                     members = []
                     euclid_distances = euclidean_distances(X.values[train_index], X.values[train_index])
@@ -297,11 +297,10 @@ def run_experiments(dataset):
                             predictions.append(clf.predict(embedded_test))
                         occurence_count = Counter(list(map(lambda x: x[0], predictions)))
                         ensemble_vote.append(occurence_count.most_common(1)[0][0])
-                    accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
-                accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
-                intermediate_results.setdefault(dataset_name, []).append(
-                    (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers), accuracy))
+                    accuracy = metrics.accuracy_score(y_test, ensemble_vote)
+                    intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append(
+                        (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                              DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers), accuracy))
                 count += 1
                 if PRINT_TO_STDOUT:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
