@@ -43,6 +43,7 @@ DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
+DEFAULT_NUMBER_OF_CENTERS = [1, 2, 3, 4, 5, 7]
 DEFAULT_NUMBER_OF_MEMBERS = [11, 21]
 DEFAULT_NUMBER_OF_COMPONENTS = ['10']
 
@@ -76,14 +77,17 @@ def send_email(user, pwd, recipient, subject, body, file):
     print_info('Summary email sent')
 
 
-def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, kernels=None):
+def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, num_centers=None,
+                         kernels=None):
     key = experiment_name + '-' + classifier
     if components:
-        key += '-' + str(components)
+        key += '-d' + str(components)
     if folds:
-        key += '-' + str(folds)
+        key += '-f' + str(folds)
     if kernels_num:
-        key += '-' + str(kernels_num)
+        key += '-m' + str(kernels_num)
+    if num_centers:
+        key += '-c' + str(num_centers)
     if kernels:
         key += '-[' + (','.join([kernel.to_string() for kernel in kernels])) + ']'
     return key
@@ -122,7 +126,9 @@ def get_experiment_parameters(experiment_params):
         else DEFAULT_NUMBER_OF_COMPONENTS
     ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
         else DEFAULT_NUMBER_OF_MEMBERS
-    return classifiers_list, components, ensemble_size
+    num_centers = experiment_params['num_centers'] if 'num_centers' in experiment_params \
+        else DEFAULT_NUMBER_OF_CENTERS
+    return classifiers_list, components, ensemble_size, num_centers
 
 
 def get_total_number_of_experiments(experiments):
@@ -162,6 +168,7 @@ def generate_centers(n, X, train_index, radius):
 
 
 def run_experiments(dataset):
+    experiment_start = datetime.datetime.now()
     with open('experiments.json') as json_data_file:
         experiments = json.load(json_data_file)
     dataset_name = dataset[0].split('\\')[1]
@@ -172,9 +179,6 @@ def run_experiments(dataset):
     dataframe = dataset[1]
     dataframe = dataframe.fillna(dataframe.mean())
     X = dataframe.iloc[:, :-1]
-    euclid_distances = euclidean_distances(X, X)
-    avg_euclid_distances = np.average(euclid_distances)
-    max_euclid_distances = np.max(euclid_distances)
     y = dataframe.iloc[:, -1]
     splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
                                      n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1, random_state=0).split(X, y)
@@ -190,20 +194,23 @@ def run_experiments(dataset):
                     continue
                 components_str = experiment_config[1]
                 members_num = experiment_config[2]
+                num_centers = experiment_config[3]
                 components_num = int(components_str) if components_str.isdigit() else \
                     round(X.shape[1] * float(components_str[:-1]))
                 if PROVIDE_SEED:
                     random.seed(30)
                 splits, splits_copy = itertools.tee(splits)
                 accuracies = []
-                n = 5  # TODO - move to default params
                 for train_index, test_index in splits_copy:
                     all_kernels = []
                     members = []
+                    euclid_distances = euclidean_distances(X.values[train_index], X.values[train_index])
+                    avg_euclid_distances = np.average(euclid_distances)
+                    max_euclid_distances = np.max(euclid_distances)
                     for _ in range(members_num):
                         datastructure = {}
                         radius = avg_euclid_distances
-                        centers = generate_centers(n, X, train_index, radius)
+                        centers = generate_centers(num_centers, X, train_index, radius)
                         for i, center in enumerate(centers):
                             rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
                                                 max_euclid_distances,
@@ -294,16 +301,16 @@ def run_experiments(dataset):
                 accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, members_num), accuracy))
+                                          DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers), accuracy))
                 count += 1
                 if PRINT_TO_STDOUT:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                        DEFAULT_NUMBER_OF_FOLDS, members_num)
+                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                         ' ' + str_to_print)
                 else:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, all_kernels)
+                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers, all_kernels)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                                ' ' + str_to_print)
             except Exception as e:
@@ -312,9 +319,10 @@ def run_experiments(dataset):
                 count += 1
                 intermediate_results.setdefault(dataset_name, []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, members_num), -100))
+                                          DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers), -100))
         print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
-    print_info('Finished running experiments on dataset ' + dataset_name)
+    experiment_difference = datetime.datetime.now() - experiment_start
+    print_info('Finished running experiments on dataset ' + dataset_name + ', runtime - ' + str(experiment_difference))
     log_file.close()
     return intermediate_results
 

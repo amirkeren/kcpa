@@ -13,6 +13,10 @@ CLASSIFIERS = [
     {
         "name": "random_forest",
         "ensemble": "True"
+    },
+    {
+        "name": "gradient_boosting",
+        "ensemble": "True"
     }
 ]
 
