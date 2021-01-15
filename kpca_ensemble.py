@@ -78,11 +78,11 @@ def send_email(user, pwd, recipient, subject, body, file):
 def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, kernels=None):
     key = experiment_name + '-' + classifier
     if components:
-        key += '-' + str(components)
+        key += '-d' + str(components)
     if folds:
-        key += '-' + str(folds)
+        key += '-f' + str(folds)
     if kernels_num:
-        key += '-' + str(kernels_num)
+        key += '-m' + str(kernels_num)
     if kernels:
         key += '-[' + (','.join([kernel.to_string() for kernel in kernels])) + ']'
     return key
@@ -146,6 +146,7 @@ def run_baseline(dataset_name, X, y, splits):
 
 
 def run_experiments(dataset):
+    experiment_start = datetime.datetime.now()
     with open('experiments.json') as json_data_file:
         experiments = json.load(json_data_file)
     dataset_name = dataset[0].split('\\')[1]
@@ -251,7 +252,8 @@ def run_experiments(dataset):
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                           DEFAULT_NUMBER_OF_FOLDS, members_num), -100))
         print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
-    print_info('Finished running experiments on dataset ' + dataset_name)
+    experiment_difference = datetime.datetime.now() - experiment_start
+    print_info('Finished running experiments on dataset ' + dataset_name + ', runtime - ' + str(experiment_difference))
     log_file.close()
     return intermediate_results
 
