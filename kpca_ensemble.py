@@ -395,9 +395,16 @@ def summarize_results(results_df):
 
 def run_statistical_analysis(results_df):
     print_info('Run statistical analysis on results')
+    experiments = df.filter(regex=("approach.*")).values.tolist()
     summarized_results = summarize_results(results_df)
     best_experiment = summarized_results['best_experiment']
     results_string = 'Best experiment is - ' + str(best_experiment['experiment']) + '\n'
+    try:
+        stat, p = stats.friedmanchisquare(*experiments)
+        results_string += 'Experiments Friedman results: s = ' + str(stat) + ', p = ' + \
+                          str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
+    except Exception as e:
+        results_string += 'Failed to run Friedman test - ' + str(e) + '\n'
     for key, value in summarized_results.items():
         if key == 'best_experiment':
             continue
