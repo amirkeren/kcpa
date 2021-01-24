@@ -431,11 +431,6 @@ def compare_experiments(experiment, baseline, baseline_name):
             results_string += 'Wilcoxon: s = ' + str(stat) + ', p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
         except Exception as e:
             results_string += 'Failed to run Wilcoxon test - ' + str(e) + '\n'
-        try:
-            stat, p = stats.friedmanchisquare(baseline_results, experiment_results)
-            results_string += 'Friedman: s = ' + str(stat) + ', p = ' + str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
-        except Exception as e:
-            results_string += 'Failed to run Friedman test - ' + str(e) + '\n'
     else:
         results_string += baseline_name + ' wins: ' + str(baseline['baseline_accuracy']) + ' > ' + \
                           str(experiment['accuracy']) + '\n'
