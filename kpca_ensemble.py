@@ -357,6 +357,42 @@ def get_experiments_results():
     return result_df, write_results_to_csv(result_df)
 
 
+def summarize_results_no_run(results_df):
+    summary_results = {}
+    for i in range(1, len(CLASSIFIERS) + 1):
+        summary_results[results_df.columns[i].split('-')[1]] = {
+            "baseline_accuracy": round(results_df.iloc[:, i].mean(), ACCURACY_FLOATING_POINT),
+            "baseline_results": results_df.iloc[:, i],
+            "experiments_accuracy": []
+        }
+    for i in range(len(results_df.columns)):
+        if results_df.columns[i].split("-")[0] == "baseline":
+            continue
+        summary_results[results_df.columns[i].split('-')[1]]['experiments_accuracy'].append({
+            "experiment": results_df.columns[i],
+            "experiment_results": results_df.iloc[:, i],
+            "accuracy": round(results_df.iloc[:, i].mean(), ACCURACY_FLOATING_POINT)
+        })
+    for key, value in summary_results.items():
+        best_experiment = {'accuracy': -1}
+        for experiment in value['experiments_accuracy']:
+            if experiment['accuracy'] > best_experiment['accuracy']:
+                best_experiment = experiment
+        summary_results[key]['best_experiment'] = best_experiment
+        del summary_results[key]['experiments_accuracy']
+    overall_best_experiment_accuracy = -1
+    overall_best_experiment = {}
+    for key, value in summary_results.items():
+        if value['best_experiment']['accuracy'] > overall_best_experiment_accuracy:
+            overall_best_experiment_accuracy = value['best_experiment']['accuracy']
+            overall_best_experiment = value['best_experiment']
+    for key in list(summary_results):
+        if not is_ensemble_classifier(key):
+            del summary_results[key]
+    summary_results['best_experiment'] = overall_best_experiment
+    return summary_results
+
+
 def summarize_results(results_df):
     summary_results = {}
     for i in range(len(CLASSIFIERS)):
@@ -393,10 +429,13 @@ def summarize_results(results_df):
     return summary_results
 
 
-def run_statistical_analysis(results_df):
+def run_statistical_analysis(results_df, full_run=True):
     print_info('Run statistical analysis on results')
     experiments = df.filter(regex=("approach.*")).values.tolist()
-    summarized_results = summarize_results(results_df)
+    if full_run:
+        summarized_results = summarize_results(results_df)
+    else:
+        summarized_results = summarize_results_no_run(results_df)
     best_experiment = summarized_results['best_experiment']
     results_string = 'Best experiment is - ' + str(best_experiment['experiment']) + '\n'
     try:
@@ -461,11 +500,13 @@ if __name__ == '__main__':
     for arg in sys.argv[1:]:
         input_file = arg
     start = datetime.datetime.now()
+    ran_full = True
     if input_file:
         send_summary_email = False
         input_file = 'results/' + input_file
         if isfile(input_file):
             print_info('Results file found')
+            ran_full = False
             df = pd.read_csv(input_file, index_col=0)
         else:
             print_info('Results file ' + input_file.split('/')[1] + ' not found')
@@ -480,7 +521,7 @@ if __name__ == '__main__':
     difference = datetime.datetime.now() - start
     print_info('Finished running all experiments')
     print_info('Total run time is ' + str(difference))
-    stat_results = run_statistical_analysis(df)
+    stat_results = run_statistical_analysis(df, full_run=ran_full)
     print_info(stat_results, print_to_stdout=True)
     config = configparser.RawConfigParser()
     config.read('ConfigFile.properties')
