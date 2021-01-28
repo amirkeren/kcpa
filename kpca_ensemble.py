@@ -401,8 +401,7 @@ def run_statistical_analysis(results_df):
     results_string = 'Best experiment is - ' + str(best_experiment['experiment']) + '\n'
     try:
         stat, p = stats.friedmanchisquare(*experiments)
-        results_string += 'Experiments Friedman results: s = ' + str(stat) + ', p = ' + \
-                          str(round(p, ACCURACY_FLOATING_POINT)) + '\n'
+        results_string += 'Experiments Friedman results: s = ' + str(stat) + ', p = ' + str(p) + '\n'
     except Exception as e:
         results_string += 'Failed to run Friedman test - ' + str(e) + '\n'
     for key, value in summarized_results.items():
