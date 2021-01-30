@@ -15,6 +15,7 @@ from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
 from pathlib import Path
+import operator
 import datetime
 import pandas as pd
 import numpy as np
@@ -182,7 +183,6 @@ def run_experiments(dataset):
                     random.seed(30)
                 splits, splits_copy = itertools.tee(splits)
                 for fold, (train_index, test_index) in enumerate(splits_copy):
-                    accuracies = []
                     results = {}
                     X_train, X_test = X.values[train_index], X.values[test_index]
                     y_train, y_test = y.values[train_index], y.values[test_index]
@@ -201,32 +201,40 @@ def run_experiments(dataset):
                                                 normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
                                                 random=random)
                         kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
-                        for kernel in kernels:
-                            try:
-                                embedded_train = kernel.calculate_kernel(X_train)
-                                clf = get_classifier(classifier_config)
-                                clf.fit(embedded_train, y_train)
-                                kernels_and_classifiers.append((kernel, clf))
-                            except Exception as e:
-                                print_info('Failed to calculate kernel ' + kernel.kernel_name + ' in dataset ' +
-                                           dataset_name)
-                                kernels_and_classifiers.append((kernel, None))
-                    for i in range(0, len(kernels_and_classifiers), 3):
-                        temp_results = {}
-                        for j in range(len(kernels)):
-                            kernel, clf = kernels_and_classifiers[i + j]
-                            if clf:
-                                embedded_test = kernel.calculate_kernel(X_test, is_test=True)
-                                predictions = clf.predict(embedded_test)
-                                temp_results[(kernel, clf)] = predictions
-                        if temp_results:
-                            results_df = pd.DataFrame.from_dict(temp_results)
-                            ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
-                            results[(kernel, clf)] = ensemble_vote
+                        sub_splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
+                                                             n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1,
+                                                             random_state=0).split(X_train, y_train)
+                        temp_accuracies = {}
+                        for i, kernel in enumerate(kernels):
+                            kernel_accuracies = []
+                            sub_splits, sub_splits_copy = itertools.tee(sub_splits)
+                            for sub_train_index, sub_test_index in sub_splits_copy:
+                                try:
+                                    X_sub_train, X_sub_test = X_train[sub_train_index], X_train[sub_test_index]
+                                    y_sub_train, y_sub_test = y_train[sub_train_index], y_train[sub_test_index]
+                                    embedded_train = kernel.calculate_kernel(X_sub_train)
+                                    embedded_test = kernel.calculate_kernel(X_sub_test, is_test=True)
+                                    clf = get_classifier(classifier_config)
+                                    clf.fit(embedded_train, y_sub_train)
+                                    predictions = clf.predict(embedded_test)
+                                    kernel_accuracies.append(metrics.accuracy_score(y_sub_test, predictions))
+                                except:
+                                    kernel_accuracies.append(-1)
+                                    print_info(dataset_name + ' - Failed to calculate accuracy for kernel ' +
+                                               kernel.kernel_name)
+                            temp_accuracies[i] = round(np.asarray(kernel_accuracies).mean(), ACCURACY_FLOATING_POINT)
+                        member = kernels[max(temp_accuracies.items(), key=operator.itemgetter(1))[0]]
+                        embedded_train = member.calculate_kernel(X_train)
+                        clf = get_classifier(classifier_config)
+                        clf.fit(embedded_train, y_train)
+                        kernels_and_classifiers.append((member, clf))
+                    for kernel, clf in kernels_and_classifiers:
+                        embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                        predictions = clf.predict(embedded_test)
+                        results[(kernel, clf)] = predictions
                     results_df = pd.DataFrame.from_dict(results)
                     ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
-                    accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
-                    accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
+                    accuracy = round(metrics.accuracy_score(y_test, ensemble_vote), ACCURACY_FLOATING_POINT)
                     intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append(
                         (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                               DEFAULT_NUMBER_OF_FOLDS, members_num), accuracy))
