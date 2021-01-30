@@ -27,8 +27,8 @@ import configparser
 import random
 
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = False
-SEND_EMAIL = False
+RUN_ON_LARGE_DATASETS = True
+SEND_EMAIL = True
 PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
 REMOVE_INVALID_RESULTS = True
