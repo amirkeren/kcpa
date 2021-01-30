@@ -15,7 +15,6 @@ from sklearn import metrics
 from time import localtime, strftime, ctime
 from scipy import stats
 from pathlib import Path
-from collections import Counter
 import datetime
 import pandas as pd
 import numpy as np
@@ -28,8 +27,8 @@ import configparser
 import random
 
 RUN_PARALLEL = True
-RUN_ON_LARGE_DATASETS = True
-SEND_EMAIL = True
+RUN_ON_LARGE_DATASETS = False
+SEND_EMAIL = False
 PRINT_TO_STDOUT = False
 PROVIDE_SEED = False
 REMOVE_INVALID_RESULTS = True
@@ -43,8 +42,7 @@ DEFAULT_NUMBER_OF_FOLDS = 10  # 2
 DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
-DEFAULT_NUMBER_OF_CENTERS = [1, 2, 3, 4, 5, 7]
-DEFAULT_NUMBER_OF_MEMBERS = [11, 21, 30]
+DEFAULT_NUMBER_OF_MEMBERS = [30]
 DEFAULT_NUMBER_OF_COMPONENTS = ['10']
 
 
@@ -77,8 +75,7 @@ def send_email(user, pwd, recipient, subject, body, file):
     print_info('Summary email sent')
 
 
-def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, num_centers=None,
-                         kernels=None):
+def build_experiment_key(experiment_name, classifier, components=None, folds=None, kernels_num=None, kernels=None):
     key = experiment_name + '-' + classifier
     if components:
         key += '-d' + str(components)
@@ -86,8 +83,6 @@ def build_experiment_key(experiment_name, classifier, components=None, folds=Non
         key += '-f' + str(folds)
     if kernels_num:
         key += '-m' + str(kernels_num)
-    if num_centers:
-        key += '-c' + str(num_centers)
     if kernels:
         key += '-[' + (','.join([kernel.to_string() for kernel in kernels])) + ']'
     return key
@@ -126,9 +121,7 @@ def get_experiment_parameters(experiment_params):
         else DEFAULT_NUMBER_OF_COMPONENTS
     ensemble_size = experiment_params['ensemble_size'] if 'ensemble_size' in experiment_params \
         else DEFAULT_NUMBER_OF_MEMBERS
-    num_centers = experiment_params['num_centers'] if 'num_centers' in experiment_params \
-        else DEFAULT_NUMBER_OF_CENTERS
-    return classifiers_list, components, ensemble_size, num_centers
+    return classifiers_list, components, ensemble_size
 
 
 def get_total_number_of_experiments(experiments):
@@ -146,25 +139,11 @@ def run_baseline(dataset_name, X, y, splits):
     for classifier_config in CLASSIFIERS:
         splits, splits_copy = itertools.tee(splits)
         clf = get_classifier(classifier_config)
-        accuracy = round(np.mean(cross_val_score(clf, X, y, cv=splits_copy)), ACCURACY_FLOATING_POINT)
-        intermediate_results.setdefault(dataset_name, []).append((
-            build_experiment_key(experiment_name, classifier_config['name']), accuracy))
+        accuracies = cross_val_score(clf, X, y, cv=splits_copy)
+        for fold in range(len(accuracies)):
+            intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append((
+                build_experiment_key(experiment_name, classifier_config['name']), accuracies[fold]))
     return intermediate_results
-
-
-def generate_centers(n, X, train_index, radius):
-    centers = [train_index[random.randint(0, len(train_index) - 1)]]
-    while len(centers) < n:
-        random_point = train_index[random.randint(0, len(train_index) - 1)]
-        found = False
-        for center in centers:
-            dist = np.linalg.norm(X.values[random_point, :] - X.values[center, :])
-            if dist > radius:
-                found = True
-                break
-        if found:
-            centers.append(random_point)
-    return centers
 
 
 def run_experiments(dataset):
@@ -179,6 +158,9 @@ def run_experiments(dataset):
     dataframe = dataset[1]
     dataframe = dataframe.fillna(dataframe.mean())
     X = dataframe.iloc[:, :-1]
+    euclid_distances = euclidean_distances(X, X)
+    avg_euclid_distances = np.average(euclid_distances)
+    max_euclid_distances = np.max(euclid_distances)
     y = dataframe.iloc[:, -1]
     splits = RepeatedStratifiedKFold(n_splits=DEFAULT_NUMBER_OF_FOLDS,
                                      n_repeats=5 if DEFAULT_NUMBER_OF_FOLDS == 2 else 1, random_state=0).split(X, y)
@@ -194,132 +176,79 @@ def run_experiments(dataset):
                     continue
                 components_str = experiment_config[1]
                 members_num = experiment_config[2]
-                num_centers = experiment_config[3]
                 components_num = int(components_str) if components_str.isdigit() else \
                     round(X.shape[1] * float(components_str[:-1]))
                 if PROVIDE_SEED:
                     random.seed(30)
                 splits, splits_copy = itertools.tee(splits)
-                accuracies = []
-                for train_index, test_index in splits_copy:
-                    all_kernels = []
-                    members = []
-                    euclid_distances = euclidean_distances(X.values[train_index], X.values[train_index])
-                    avg_euclid_distances = np.average(euclid_distances)
-                    max_euclid_distances = np.max(euclid_distances)
+                for fold, (train_index, test_index) in enumerate(splits_copy):
+                    accuracies = []
+                    results = {}
+                    X_train, X_test = X.values[train_index], X.values[test_index]
+                    y_train, y_test = y.values[train_index], y.values[test_index]
+                    kernels_and_classifiers = []
                     for _ in range(members_num):
-                        datastructure = {}
-                        radius = avg_euclid_distances
-                        centers = generate_centers(num_centers, X, train_index, radius)
-                        for i, center in enumerate(centers):
-                            rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
+                        rbf_kernel = Kernel({'name': 'rbf'}, components_num, avg_euclid_distances,
+                                            max_euclid_distances,
+                                            normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                            random=random)
+                        poly_kernel = Kernel({'name': 'poly'}, components_num, avg_euclid_distances,
+                                             max_euclid_distances,
+                                             normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
+                                             random=random)
+                        sigmoid_kernel = Kernel({'name': 'sigmoid'}, components_num, avg_euclid_distances,
                                                 max_euclid_distances,
                                                 normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
                                                 random=random)
-                            poly_kernel = Kernel({'name': 'poly'}, components_num, avg_euclid_distances,
-                                                 max_euclid_distances,
-                                                 normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                                 random=random)
-                            sigmoid_kernel = Kernel({'name': 'sigmoid'}, components_num, avg_euclid_distances,
-                                                    max_euclid_distances,
-                                                    normalization_method=DEFAULT_NORMALIZATION_METHOD_PRECOMBINE,
-                                                    random=random)
-                            kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
-                            all_kernels.extend(kernels)
-                            datastructure[i] = {'center': center, 'kernels': kernels,
-                                                'train_points': [], 'classifiers': []}
-                        for i in train_index:
-                            closest_point = -1
-                            min_distance = float('inf')
-                            for key, value in datastructure.items():
-                                dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                                if dist <= radius and dist < min_distance:
-                                    min_distance = dist
-                                    closest_point = key
-                            if closest_point >= 0:
-                                datastructure[closest_point]['train_points'].append(i)
-                            else:
-                                min_distance = float('inf')
-                                for key, value in datastructure.items():
-                                    dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                                    if dist < min_distance:
-                                        min_distance = dist
-                                        closest_point = key
-                                if closest_point >= 0:
-                                    datastructure[closest_point]['train_points'].append(i)
-                        for key, value in datastructure.items():
-                            X_train = X.values[value['train_points']]
-                            y_train = y.values[value['train_points']]
-                            if len(X_train) > 0:
-                                for kernel in value['kernels']:
-                                    try:
-                                        embedded_train = kernel.calculate_kernel(X_train)
-                                        clf = get_classifier(classifier_config)
-                                        clf.fit(embedded_train, y_train)
-                                        value['classifiers'].append(clf)
-                                    except Exception as e:
-                                        value['classifiers'].append(None)
-                                        print_info('Failed to fit kernel ' + kernel.kernel_name + ' in dataset ' +
-                                                   dataset_name)
-                        members.append(datastructure)
-                    row_to_classifications = {}
-                    for i in test_index:
-                        classifications = []
-                        for member in members:
-                            closest_point = -1
-                            min_distance = float('inf')
-                            for key, value in member.items():
-                                dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                                if dist <= radius and dist < min_distance:
-                                    min_distance = dist
-                                    closest_point = key
-                                else:
-                                    min_distance = float('inf')
-                                    for key, value in member.items():
-                                        dist = np.linalg.norm(X.values[i, :] - X.values[value['center'], :])
-                                        if dist < min_distance:
-                                            min_distance = dist
-                                            closest_point = key
-                            if closest_point >= 0:
-                                value = member[closest_point]
-                                for j, kernel in enumerate(value['kernels']):
-                                    clf = value['classifiers'][j]
-                                    if clf:
-                                        classifications.append((clf, kernel))
-                        row_to_classifications[i] = classifications
-                    y_test = y.values[test_index]
-                    ensemble_vote = []
-                    for row, classifications in row_to_classifications.items():
-                        X_test = X.values[[row]]
-                        predictions = []
-                        for clf, kernel in classifications:
-                            embedded_test = kernel.calculate_kernel(X_test, is_test=True)
-                            predictions.append(clf.predict(embedded_test))
-                        occurence_count = Counter(list(map(lambda x: x[0], predictions)))
-                        ensemble_vote.append(occurence_count.most_common(1)[0][0])
+                        kernels = [rbf_kernel, poly_kernel, sigmoid_kernel]
+                        for kernel in kernels:
+                            try:
+                                embedded_train = kernel.calculate_kernel(X_train)
+                                clf = get_classifier(classifier_config)
+                                clf.fit(embedded_train, y_train)
+                                kernels_and_classifiers.append((kernel, clf))
+                            except Exception as e:
+                                print_info('Failed to calculate kernel ' + kernel.kernel_name + ' in dataset ' +
+                                           dataset_name)
+                                kernels_and_classifiers.append((kernel, None))
+                    for i in range(0, len(kernels_and_classifiers), 3):
+                        temp_results = {}
+                        for j in range(len(kernels)):
+                            kernel, clf = kernels_and_classifiers[i + j]
+                            if clf:
+                                embedded_test = kernel.calculate_kernel(X_test, is_test=True)
+                                predictions = clf.predict(embedded_test)
+                                temp_results[(kernel, clf)] = predictions
+                        if temp_results:
+                            results_df = pd.DataFrame.from_dict(temp_results)
+                            ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
+                            results[(kernel, clf)] = ensemble_vote
+                    results_df = pd.DataFrame.from_dict(results)
+                    ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
                     accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
-                accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
-                intermediate_results.setdefault(dataset_name, []).append(
-                    (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers), accuracy))
+                    accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
+                    intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append(
+                        (build_experiment_key(experiment_name, classifier_config['name'], components_str,
+                                              DEFAULT_NUMBER_OF_FOLDS, members_num), accuracy))
                 count += 1
                 if PRINT_TO_STDOUT:
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers)
+                                                        DEFAULT_NUMBER_OF_FOLDS, members_num)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                         ' ' + str_to_print)
                 else:
+                    kernels = [key[0] for key in kernels_and_classifiers]
                     str_to_print = build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers, all_kernels)
+                                                        DEFAULT_NUMBER_OF_FOLDS, members_num, kernels)
                     print_info('{0:.1%}'.format(float(count) / total_number_of_experiments) + ' ' + dataset_name +
                                ' ' + str_to_print)
             except Exception as e:
                 print_info('Failed to run experiment ' + experiment_name + ' on dataset ' + dataset_name +
                            ' with exception ' + str(e))
                 count += 1
-                intermediate_results.setdefault(dataset_name, []).append(
+                intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
-                                          DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers), -100))
+                                          DEFAULT_NUMBER_OF_FOLDS, members_num), -100))
         print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
     experiment_difference = datetime.datetime.now() - experiment_start
     print_info('Finished running experiments on dataset ' + dataset_name + ', runtime - ' + str(experiment_difference))
