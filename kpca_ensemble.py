@@ -224,7 +224,7 @@ def run_experiments(dataset):
                             results[(kernel, clf)] = ensemble_vote
                     results_df = pd.DataFrame.from_dict(results)
                     ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
-                    accuracy = metrics.accuracy_score(y_test, ensemble_vote)
+                    accuracy = round(metrics.accuracy_score(y_test, ensemble_vote), ACCURACY_FLOATING_POINT)
                     intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append(
                         (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                               DEFAULT_NUMBER_OF_FOLDS, members_num), accuracy))
