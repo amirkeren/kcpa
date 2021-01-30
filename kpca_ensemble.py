@@ -182,7 +182,6 @@ def run_experiments(dataset):
                     random.seed(30)
                 splits, splits_copy = itertools.tee(splits)
                 for fold, (train_index, test_index) in enumerate(splits_copy):
-                    accuracies = []
                     results = {}
                     X_train, X_test = X.values[train_index], X.values[test_index]
                     y_train, y_test = y.values[train_index], y.values[test_index]
@@ -225,8 +224,7 @@ def run_experiments(dataset):
                             results[(kernel, clf)] = ensemble_vote
                     results_df = pd.DataFrame.from_dict(results)
                     ensemble_vote = results_df.mode(axis=1).iloc[:, 0]
-                    accuracies.append(metrics.accuracy_score(y_test, ensemble_vote))
-                    accuracy = round(np.asarray(accuracies).mean(), ACCURACY_FLOATING_POINT)
+                    accuracy = metrics.accuracy_score(y_test, ensemble_vote)
                     intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append(
                         (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                               DEFAULT_NUMBER_OF_FOLDS, members_num), accuracy))
