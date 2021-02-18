@@ -44,7 +44,7 @@ DEFAULT_NORMALIZATION_METHOD_PREPROCESS = Normalization.STANDARD
 DEFAULT_NORMALIZATION_METHOD_PRECOMBINE = Normalization.STANDARD
 # grid searchable
 DEFAULT_NUMBER_OF_CENTERS = [1, 2, 3, 4, 5, 7]
-DEFAULT_NUMBER_OF_MEMBERS = [11, 21]
+DEFAULT_NUMBER_OF_MEMBERS = [11, 20, 30]
 DEFAULT_NUMBER_OF_COMPONENTS = ['10']
 
 
@@ -316,7 +316,7 @@ def run_experiments(dataset):
                 print_info('Failed to run experiment ' + experiment_name + ' on dataset ' + dataset_name +
                            ' with exception ' + str(e))
                 count += 1
-                intermediate_results.setdefault(dataset_name, []).append(
+                intermediate_results.setdefault(dataset_name + '_fold' + str(fold), []).append(
                     (build_experiment_key(experiment_name, classifier_config['name'], components_str,
                                           DEFAULT_NUMBER_OF_FOLDS, members_num, num_centers), -100))
         print_info('Finished running experiment ' + experiment_name + ' on dataset ' + dataset_name)
